@@ -366,7 +366,7 @@ def fileCheck(filename):
 
 
 
-def main(rules_arr, empty_arr, files):
+def main(rules_arr, empty_arr, files, progBar):
     test = DB(os.getcwd())
     test.create_table('Tcsv')
     log = Log()
@@ -374,7 +374,11 @@ def main(rules_arr, empty_arr, files):
     m_empty_arr.insert(0, False)
     m_empty_arr.insert(4, False)
     m_empty_arr.insert(6, False)
+    filesCount = len(files)
+    completed = 0
     for filename in files:
+        completed += 1/filesCount * 100
+        progBar.setValue(completed)
         a = []
         fileCheck(filename)
         log.addFile(filename)
@@ -387,6 +391,6 @@ def main(rules_arr, empty_arr, files):
             log.addRec(filename, rowCount)
             base = os.path.splitext(os.path.basename(filename))[0]
             test.insert('Tcsv', a, base, filename, log, rules_arr, m_empty_arr)
-
+    progBar.setValue(100)
     log.createLog()
     del log
