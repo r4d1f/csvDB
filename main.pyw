@@ -34,8 +34,8 @@ class ExampleApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
         files = []
         for i in range(self.listWidget.count()):
             files.append(self.listWidget.item(i).text())
-        source.main(self.rules_arr, self.empty_arr, files, self.progressBar)
-        self.msg.exec()
+        if source.main(self.rules_arr, self.empty_arr, files, self):
+            self.msg.exec()
 
     def set_rules(self):
         win = RulesWin(self.rules_arr)
@@ -48,6 +48,12 @@ class ExampleApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
         win.setModal(True)
         win.exec()
         self.empty_arr = win.get_empty()
+
+    def error_file(self, file):
+        self.errmsg = QtWidgets.QMessageBox()
+        self.errmsg.setWindowTitle('Ошибка')
+        self.errmsg.setText(f'Ошибка в файле {file}')
+        self.errmsg.exec()
 
 class RulesWin(QtWidgets.QDialog, rules.Ui_Dialog):
         def __init__(self, rules_arr):
@@ -88,6 +94,7 @@ class EmptyWin(QtWidgets.QDialog, setempty.Ui_Dialog):
             self.close()
     def get_empty(self):
         return self.empty_arr
+
 
 def main():
     app = QtWidgets.QApplication(sys.argv) 

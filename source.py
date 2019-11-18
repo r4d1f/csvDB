@@ -87,12 +87,15 @@ class DB:
             year = int(yearin) - int(date.split('.')[2])
             return ( year < 15 or year > 100)
         def sex_check(sex, patr):
-            if (sex.lower() != 'муж' and sex.lower() != 'жен'):
-                return True
-            elif ((patr[-1] == 'ч' and sex.lower() != 'муж') or (patr[-1] == 'а' and sex.lower() != 'жен')):
-                return True
+            if patr != '':
+                if (sex.lower() != 'муж' and sex.lower() != 'жен'):
+                    return True
+                elif ((patr[-1] == 'ч' and sex.lower() != 'муж') or (patr[-1] == 'а' and sex.lower() != 'жен')):
+                    return True
+                else:
+                    return False
             else:
-                return False
+                return True
         def code_check(code, lvl):
             if (re.fullmatch(r'\d{2}\.\d{2}\.\d{2}', code)):
                 return 0
@@ -117,7 +120,7 @@ class DB:
                 return -1
 
         str_ind = [1, 2, 7, 8, 9, 10, 11, 17, 18, 19, 27]
-        int_ind = [0, 3, 4, 5, 6, 12, 13, 15, 20, 21, 22]
+        int_ind = [0, 3, 4, 5, 6, 20, 21]
         date_ind = [14, 26]
         base = base.split('-')
         ogrn = base[0]
@@ -366,7 +369,8 @@ def fileCheck(filename):
 
 
 
-def main(rules_arr, empty_arr, files, progBar):
+def main(rules_arr, empty_arr, files, obj):
+    progBar = obj.progressBar
     test = DB(os.getcwd())
     test.create_table('Tcsv')
     log = Log()
@@ -376,21 +380,27 @@ def main(rules_arr, empty_arr, files, progBar):
     m_empty_arr.insert(6, False)
     filesCount = len(files)
     completed = 0
-    for filename in files:
-        completed += 1/filesCount * 100
-        progBar.setValue(completed)
-        a = []
-        fileCheck(filename)
-        log.addFile(filename)
-        with open(filename, "r", newline='') as csvfile:
-            reader = csv.DictReader(csvfile, delimiter=';')
-            rowCount = 0
-            for line in reader:            
-                a.append(line)
-                rowCount += 1
-            log.addRec(filename, rowCount)
-            base = os.path.splitext(os.path.basename(filename))[0]
-            test.insert('Tcsv', a, base, filename, log, rules_arr, m_empty_arr)
+    try:
+        for filename in files:
+            completed += 1/filesCount * 100
+            progBar.setValue(completed)
+            a = []
+            fileCheck(filename)
+            log.addFile(filename)
+            with open(filename, "r", newline='') as csvfile:
+                reader = csv.DictReader(csvfile, delimiter=';')
+                rowCount = 0
+                for line in reader:            
+                    a.append(line)
+                    rowCount += 1
+                log.addRec(filename, rowCount)
+                base = os.path.splitext(os.path.basename(filename))[0]
+                test.insert('Tcsv', a, base, filename, log, rules_arr, m_empty_arr)
+    except:
+        obj.error_file(filename)
+        return 0
+
     progBar.setValue(100)
     log.createLog()
     del log
+    return 1
