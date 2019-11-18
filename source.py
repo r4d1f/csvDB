@@ -380,8 +380,8 @@ def main(rules_arr, empty_arr, files, obj):
     m_empty_arr.insert(6, False)
     filesCount = len(files)
     completed = 0
-    try:
-        for filename in files:
+    for filename in files:
+        try:
             completed += 1/filesCount * 100
             progBar.setValue(completed)
             a = []
@@ -396,9 +396,10 @@ def main(rules_arr, empty_arr, files, obj):
                 log.addRec(filename, rowCount)
                 base = os.path.splitext(os.path.basename(filename))[0]
                 test.insert('Tcsv', a, base, filename, log, rules_arr, m_empty_arr)
-    except:
-        obj.error_file(filename)
-        return 0
+        except:
+            obj.error_file(filename)
+            continue
+            
 
     progBar.setValue(100)
     log.createLog()
