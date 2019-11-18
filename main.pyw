@@ -34,7 +34,7 @@ class ExampleApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
         files = []
         for i in range(self.listWidget.count()):
             files.append(self.listWidget.item(i).text())
-        source.main(self.rules_arr, self.empty_arr, files)
+        source.main(self.rules_arr, self.empty_arr, files, self.progressBar)
         self.msg.exec()
 
     def set_rules(self):
