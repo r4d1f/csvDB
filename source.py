@@ -87,12 +87,13 @@ class DB:
             year = int(yearin) - int(date.split('.')[2])
             return ( year < 15 or year > 100)
         def sex_check(sex, patr):
-            if (sex.lower() != 'муж' and sex.lower() != 'жен'):
-                return True
-            elif ((patr[-1] == 'ч' and sex.lower() != 'муж') or (patr[-1] == 'а' and sex.lower() != 'жен')):
-                return True
-            else:
-                return False
+        	if patr != '':
+	            if (sex.lower() != 'муж' and sex.lower() != 'жен'):
+	                return True
+	            elif ((patr[-1] == 'ч' and sex.lower() != 'муж') or (patr[-1] == 'а' and sex.lower() != 'жен')):
+	                return True
+	            else:
+	                return False
         def code_check(code, lvl):
             if (re.fullmatch(r'\d{2}\.\d{2}\.\d{2}', code)):
                 return 0
@@ -117,7 +118,7 @@ class DB:
                 return -1
 
         str_ind = [1, 2, 7, 8, 9, 10, 11, 17, 18, 19, 27]
-        int_ind = [0, 3, 4, 5, 6, 12, 13, 15, 20, 21, 22]
+        int_ind = [0, 3, 4, 5, 6, 20, 21] 
         date_ind = [14, 26]
         base = base.split('-')
         ogrn = base[0]
@@ -386,7 +387,11 @@ def main(rules_arr, empty_arr, files):
                 rowCount += 1
             log.addRec(filename, rowCount)
             base = os.path.splitext(os.path.basename(filename))[0]
-            test.insert('Tcsv', a, base, filename, log, rules_arr, m_empty_arr)
+            try:
+            	test.insert('Tcsv', a, base, filename, log, rules_arr, m_empty_arr)
+            except:
+            	#return filename
 
     log.createLog()
     del log
+    #return 
