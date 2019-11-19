@@ -1,4 +1,4 @@
-﻿## -*- coding: utf-8 -*-
+## -*- coding: utf-8 -*-
 
 import sys  
 from PyQt5 import QtWidgets
@@ -34,7 +34,7 @@ class ExampleApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
         files = []
         for i in range(self.listWidget.count()):
             files.append(self.listWidget.item(i).text())
-        if source.main(self.rules_arr, self.empty_arr, files, self):
+        if source.f(self.rules_arr, self.empty_arr, files, self):
             self.msg.exec()
 
     def set_rules(self):

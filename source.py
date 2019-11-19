@@ -1,407 +1,353 @@
-import win32com.client
-import os 
-import pyodbc
+import pypyodbc
+import os
 import csv
-import glob
 import re
+import win32com.client
 import datetime
-class DB:
-    def __init__(self, path, cnxn = None, crsr = None):
-        self.path = path  + '\\db.mdb'
-        if (os.path.isfile(self.path)):
-            pass
-        else:
-            oAccess = win32com.client.Dispatch('Access.Application')
-            DbFile = self.path
-            dbLangGeneral = ';LANGID=0x0419;CP=1252;COUNTRY=0'
-            dbVersion = 64
-            oAccess.DBEngine.CreateDatabase(DbFile, dbLangGeneral, dbVersion)
-            oAccess.Quit()
-            del oAccess
-        conn_str = (
-        r'DRIVER={Microsoft Access Driver (*.mdb, *.accdb)};'
-        r'DBQ=%s;'%(self.path)
-        )
-        self.cnxn = pyodbc.connect(conn_str)
-        self.crsr = self.cnxn.cursor()
+import traceback
 
-    def __del__ (self):
-        self.cnxn.close()
+ERROR_DICT = {'Неверные данные': 0,
+              'Ожидалось число': 0,
+              'Неверный срок обучения': 0,
+              'Латинские буквы или цифры в строке': 0,
+              'Ожидалась дата': 0,
+              'Некорректная дата рождения': 0,
+              'Недопустимая контрольная сумма ОГРН': 0,
+              'Недопустимое количество символов ОГРН': 0,
+              'Недопустимое количество символов КПП': 0,
+              'Несоответствие виду документа об образовании': 0,
+              'Пустое значение': 0,
+              'Неверно указан пол': 0,
+              'Неверный код специальности': 0,
+              'Код специальности не совпадает с уровнем образования': 0}
+
+#user_rules_dict = {'Проверять соответствие уровня образования виду документа об образовании': 0,
+#                  'Проверять код специальности': 0}
+
+#empty_cells = {'0': 0, '1': 0, '2': 0, '3': 0, '4': 0, '5': 0, '6': 0, '7': 0, '8': 0, '9': 0, '10': 0, '11': 0, '12': 0, '13': 0, '14': 0, \
+#               '15': 0, '16': 0, '17': 0, '18': 0, '19': 0,'20': 0, '21': 0, '22': 0, '23': 0, '24': 0, '25': 0, '26': 0, '27': 0, '28': 0, '29': 0, \
+#               '30': 0, '31': 0, '32': 0, '33': 0}
 
 
-    def create_table(self, name):
-        sql = '''
-        CREATE TABLE %s(
-        id varchar(255),
-        [Название документа] varchar(255),
-        Организация  varchar(255),
-        ОГРН  varchar(255),
-        [Порядковый номер субъекта] varchar(255),
-        КПП varchar(255),
-        [Признак филиала, либо головной организации] varchar(255), 
-        [Вид документа] varchar(255),
-        [Статус документа] varchar(255),
-        [Подтверждение утраты] varchar(255),
-        [Подтверждение обмена] varchar(255),
-        [Уровень образования] varchar(255),
-        [Серия документа] varchar(255),
-        [Номер документа] varchar(255),
-        [Дата выдачи] varchar(255),
-        [Регистрационный номер] varchar(255),
-        [Код специальности, направления подготовки] varchar(255),
-        [Наименование специальности, направления подготовки] varchar(255),
-        [Наименование квалификации] varchar(255),
-        [Образовательная программа] varchar(255),
-        [Год поступления] varchar(255),
-        [Год окончания] varchar(255), 
-        [Срок обучения, лет] varchar(255),
-        [Фамилия получателя] varchar(255),
-        [Имя получателя] varchar(255),
-        [Отчество получателя] varchar(255),
-        [Дата рождения получателя] varchar(255),
-        [Пол получателя] varchar(255),
-        [Наименование документа об образовании (оригинала)] varchar(255),
-        [Серия (оригинала)] varchar(255),
-        [Номер (оригинала)] varchar(255),
-        [Регистрационный N (оригинала)] varchar(255),
-        [Дата выдачи (оригинала)] varchar(255),
-        [Фамилия получателя (оригинала)] varchar(255),
-        [Имя получателя (оригинала)] varchar(255),
-        [Отчество получателя (оригинала)] varchar(255)
-        )
-        '''%(name)
-        try:
-            self.crsr.execute(sql)
-            self.cnxn.commit()
-        except pyodbc.ProgrammingError:
-            print('Таблица %s уже существует'%(name))
+def create_db():
+    db_path = os.getcwd() + '/DB.mdb'
+    if (not os.path.exists(db_path)):
+        pypyodbc.win_create_mdb(db_path)    
+    db = pypyodbc.win_connect_mdb(db_path) 
+    return db
 
-    def insert(self, tb_name, orgvals, base, filename, log, rules_arr, empty_arr):
-        def ogrn_check(ogrn):
-            return  ((int(ogrn[:-1]) % 11 == int(ogrn[-1:]) or \
-                    (int(ogrn[:-1]) % 11 == 10 and int(ogrn[-1:]) == 0)) and
-                    (len(ogrn) == 13) )
-        def name_check(name):
-            return re.search('[a-zA-Z0-9]+', name) is not None
-        def birthday_check(date, yearin):
-            year = int(yearin) - int(date.split('.')[2])
-            return ( year < 15 or year > 100)
-        def sex_check(sex, patr):
-            if patr != '':
-                if (sex.lower() != 'муж' and sex.lower() != 'жен'):
-                    return True
-                elif ((patr[-1] == 'ч' and sex.lower() != 'муж') or (patr[-1] == 'а' and sex.lower() != 'жен')):
-                    return True
+def get_files_and_OGRN_KPP_from_name(files):
+    csv_files_in_directory = []
+    for f in files:
+        csv_files_in_directory.append(re.search(r'\d+-\d+[\s\S]*\.csv', f)[0])
+    OGRN = []
+    KPP = []
+    for i in range(len(files)):
+        OGRN.append(csv_files_in_directory[i][0:13])
+        KPP.append(csv_files_in_directory[i][14:23])
+    return (OGRN, KPP)
+
+def get_data_from_csv_and_check_num_delimiters(path_to_csv):
+    data = []
+    for i in range(len(path_to_csv)):
+        with open(path_to_csv[i], newline='') as csvfile:
+            data.append(list(csv.reader(csvfile, delimiter=';')))
+            for j in range(1, len(data[i])):
+                if (len(data[i][j]) < 34):
+                    if re.search(r'\d\d\d\d\d\d\d\d',data[i][0]):
+                        while (len(data[i][j]) < 34):
+                            data[i][j].append('')
+                    else:
+                        while (len(data[i][j]) < 34):
+                            data[i][j].insert(0,'') 
+                if (len(data[i][j]) > 34):
+                     data[i][j] = data[i][j][0:-(len(data[i][j]) - 34)]
+    return data
+           
+def check_data_logic(user_rules_dict, empty_cells, data):
+    for k in range(len(data)):
+        for i in range(1,len(data[k])):
+            try:
+                int(data[k][i][0])
+            except:
+                data[k][i][0] =  "Ошибка! Ожидалось число; " + data[k][i][0] 
+                ERROR_DICT['Ожидалось число'] += 1
+            try:
+                int(data[k][i][10])
+            except:
+                data[k][i][10] = "Ошибка! Ожидалось число; " + data[k][i][10]
+                ERROR_DICT['Ожидалось число'] += 1
+            try:
+                int(data[k][i][11])
+            except:
+                data[k][i][11] = "Ошибка! Ожидалось число; " + data[k][i][11]
+                ERROR_DICT['Ожидалось число'] += 1
+            try:
+                int(data[k][i][13])
+            except:
+                data[k][i][13] = "Ошибка! Ожидалось число; " + data[k][i][13]
+                ERROR_DICT['Ожидалось число'] += 1
+            try:
+                int(data[k][i][18])
+            except:
+                data[k][i][18] = "Ошибка! Ожидалось число; " + data[k][i][18]
+                ERROR_DICT['Ожидалось число'] += 1
+            try:
+                int(data[k][i][19])
+            except:
+                data[k][i][19] = "Ошибка! Ожидалось число; " + data[k][i][19]
+                ERROR_DICT['Ожидалось число'] += 1
+                int(data[k][i][20])
+            try:
+                if data[k][i][29] != '':
+                    int(data[k][i][28])
+            except:
+                data[k][i][28] = "Ошибка! Ожидалось число; " + data[k][i][28]
+                ERROR_DICT['Ожидалось число'] += 1
+            try:
+                if data[k][i][29] != '':
+                    int(data[k][i][29])
+            except:
+                data[k][i][29] = "Ошибка! Ожидалось число; " + data[k][i][29]
+                ERROR_DICT['Ожидалось число'] += 1
+
+            if (re.search(r'Ошибка!', data[k][i][20]) == None) & (re.search(r'Ошибка!', data[k][i][19]) == None) & (re.search(r'Ошибка!', data[k][i][18]) == None):
+                if int(data[k][i][20]) != int(data[k][i][19]) - int(data[k][i][18]):
+                        data[k][i][20] = "Ошибка! Неверный срок обучения; " + data[k][i][20]
+                        ERROR_DICT['Неверный срок обучения'] += 1
+            else:
+                data[k][i][20] = data[k][i][20] + " Предупреждение! Невозможно проверить срок обучения."
+
+            if re.search(r'[a-zA-Z0-9]', data[k][i][21]):
+                data[k][i][21] = "Ошибка! Латинские буквы или цифры в строке; " + data[k][i][21]
+                ERROR_DICT['Латинские буквы или цифры в строке'] += 1
+            if re.search(r'[a-zA-Z0-9]', data[k][i][22]):
+                data[k][i][22] = "Ошибка! Латинские буквы или цифры в строке; " + data[k][i][22]
+                ERROR_DICT['Латинские буквы или цифры в строке'] += 1
+            if re.search(r'[a-zA-Z0-9]', data[k][i][23]):
+                data[k][i][23] = "Ошибка! Латинские буквы или цифры в строке; " + data[k][i][23]
+                ERROR_DICT['Латинские буквы или цифры в строке'] += 1
+            if re.search(r'[a-zA-Z0-9]', data[k][i][31]):
+                data[k][i][31] = "Ошибка! Латинские буквы или цифры в строке; " + data[k][i][31]
+                ERROR_DICT['Латинские буквы или цифры в строке'] += 1
+            if re.search(r'[a-zA-Z0-9]', data[k][i][32]):
+                data[k][i][32] = "Ошибка! Латинские буквы или цифры в строке; " + data[k][i][32]
+                ERROR_DICT['Латинские буквы или цифры в строке'] += 1
+            if re.search(r'[a-zA-Z0-9]', data[k][i][33]):
+                data[k][i][33] = "Ошибка! Латинские буквы или цифры в строке; " + data[k][i][33]
+                ERROR_DICT['Латинские буквы или цифры в строке'] += 1
+
+            if re.search(r'\d\d.\d\d.\d\d\d\d', data[k][i][12]) == None:
+                data[k][i][12] = "Ошибка! Ожидалась дата; " + data[k][i][12]
+                ERROR_DICT['Ожидалась дата'] += 1
+            if re.search(r'\d\d.\d\d.\d\d\d\d', data[k][i][24]) == None:
+                data[k][i][24] = "Ошибка! Ожидалась дата; " + data[k][i][24]
+                ERROR_DICT['Ожидалась дата'] += 1
+            else:
+                if len(data[k][i][18]) == 4:
+                    if (int(data[k][i][18]) - int(data[k][i][24][6:10])) < 15:
+                       data[k][i][24] = "Ошибка! Некорректная дата рождения; " + data[k][i][24]
+                       ERROR_DICT['Некорректная дата рождения'] += 1
+            if data[k][i][30] != '':
+                if re.search(r'\d\d.\d\d.\d\d\d\d', data[k][i][30]) == None: 
+                    data[k][i][30] = "Ошибка! Ожидалась дата; " + data[k][i][30]
+                    ERROR_DICT['Ожидалась дата'] += 1
+
+            if user_rules_dict[1] == True:
+                if re.search(r'\d\d.\d\d.\d\d$', data[k][i][14]) == None:
+                    if re.search(r'\d\d.\d\d.\d\d\d\d', data[k][i][14]): 
+                        data[k][i][14] = "Ошибка! Неверный код специальности; " + data[k][i][14] + "; Возможно имелось в виду: " + data[k][i][14][0:6] + data[k][i][14][8:len(data[k][i][14])]
+                        ERROR_DICT['Неверный код специальности'] += 1
+                    elif re.search(r'\d\d\d\d\d\d', data[k][i][14]):
+                        data[k][i][14] = "Ошибка! Неверный код специальности; " + data[k][i][14] + "; Возможно имелось в виду: " + data[k][i][14][0:2] + '.'\
+                                                                                + data[k][i][14][2:4] + '.' + data[k][i][14][4:6]
+                        ERROR_DICT['Неверный код специальности'] += 1
+                    else:
+                        data[k][i][14] = "Ошибка! Неверный код специальности; " + data[k][i][14]
+                        ERROR_DICT['Неверный код специальности'] += 1
                 else:
-                    return False
+                    if re.search(r'специалистов', data[k][i][9]):
+                        if data[k][i][14][3:5] != '02':
+                            data[k][i][14] = "Ошибка! Код специальности не совпадает с уровнем образования; " + data[k][i][14]
+                            ERROR_DICT['Код специальности не совпадает с уровнем образования'] += 1
+                    if re.search(r'рабочих', data[k][i][9]):
+                        if data[k][i][14][3:5] != '01':
+                            data[k][i][14] = "Ошибка! Код специальности не совпадает с уровнем образования; " + data[k][i][14]
+                            ERROR_DICT['Код специальности не совпадает с уровнем образования'] += 1
+
+            if user_rules_dict[0] == True:
+                if (re.search(r'средн[а-я ]+проф', data[k][i][5])):
+                    if re.search(r'Средн[а-я ]+проф', data[k][i][9]) == None:
+                        data[k][i][9] = "Ошибка! Несоответствие виду документа об образовании; " + data[k][i][9]
+                        ERROR_DICT['Несоответствие виду документа об образовании'] += 1
+
+                if (re.search(r'высш[а-я ]+проф', data[k][i][5])):
+                    if re.search(r'[Вв]ысш[а-я ]+проф', data[k][i][9]) == None:
+                        data[k][i][9] = "Ошибка! Несоответствие виду документа об образовании; " + data[k][i][9]
+                        ERROR_DICT['Несоответствие виду документа об образовании'] += 1
+
+            if (data[k][i][25] == "Муж") | (data[k][i][25] == "Жен"):
+                if data[k][i][23] != '':
+                    if (re.search(r'[А-Яа-я]+ич', data[k][i][23]) != None) & (data[k][i][25] == "Жен"):
+                        data[k][i][25] = "Ошибка! Неверно указан пол; " + data[k][i][25]
+                        ERROR_DICT['Неверно указан пол'] += 1
+                    if (re.search(r'[А-Яа-я]+на', data[k][i][23]) != None) & (data[k][i][25] == "Муж"):
+                        data[k][i][25] = "Ошибка! Неверно указан пол; " + data[k][i][25]
+                        ERROR_DICT['Неверно указан пол'] += 1
             else:
-                return True
-        def code_check(code, lvl):
-            if (re.fullmatch(r'\d{2}\.\d{2}\.\d{2}', code)):
-                return 0
-            elif (re.fullmatch(r'\d{6}', code)):
-                return 1
-            elif (re.fullmatch(r'\d{2}\.\d{2}\.\d{4}', code)):
-                return 2
+                data[k][i][25] = "Ошибка! Неверные данные; " + data[k][i][25]
+                ERROR_DICT['Неверные данные'] += 1
 
-            elif (len(code.replace('.', '')) != 6):
-                return 4
-            elif (code[3:5] == '01' and not re.search(r'[\w\s]*рабочих[\w\s]*', lvl)):
-                return 5
-            elif (code[3:5] == '02' and not re.search(r'[\w\s]*специалистов[\w\s]*', lvl)):
-                return 6
-            elif (code[3:5] == '03' and not re.search(r'[\w\s]*бакалавр[\w\s]*', lvl)):
-                return 7
-            elif (code[3:5] == '04' and not re.search(r'[\w\s]*магистр[\w\s]*', lvl)):
-                return 8
-            elif (code[3:5] == '05' and not re.search(r'[\w\s]*специал[\w\s]*', lvl)):
-                return 9
+            for j in range(33):
+                if empty_cells[j] == False:
+                    if data[k][i][j+1] == '':
+                        data[k][i][j+1] = "Ошибка! Пустое значение;"
+                        ERROR_DICT['Пустое значение'] += 1
+    return data
+
+def check_OGRN_KPP_get_num_sub_RF(OGRN, KPP):
+    num_sub_RF = []
+    priznak_organiz_from_KPP = []
+    flag = 0
+    for i in range(len(OGRN)):
+        if len(OGRN[i]) == 13:
+            tmp = int(OGRN[i][0:-1])
+            if tmp % 11 <= 9:
+                tmp_2 = tmp % 11
             else:
-                return -1
-
-        str_ind = [1, 2, 7, 8, 9, 10, 11, 17, 18, 19, 27]
-        int_ind = [0, 3, 4, 5, 6, 20, 21]
-        date_ind = [14, 26]
-        base = base.split('-')
-        ogrn = base[0]
-        kpp = base[1]
-        for vals in orgvals:
-            vals = list(dict(vals).values())
-            if (not(vals[3] == '' and empty_arr[3])):
-                try:
-                    if (ogrn_check(ogrn)):
-                        vals[3] = ogrn
-                        vals.insert(4, ogrn[3:5])
-                    elif len(ogrn) != 13:
-                        vals[3] = f'Ошибка: неверное количество символов ({vals[3]})'
-                        vals.insert(4, 'Ошибка: неверный ОГРН')
-                        log.addErr(filename, vals[0], 4, vals[3])
-                        log.addErr(filename, vals[0], 5, 'Ошибка: неверный ОГРН')
-                    else:
-                        vals[3] = f'Ошибка: неверное контрольное число ({vals[3]})' 
-                        vals.insert(4, 'Ошибка: неверный ОГРН')
-                        log.addErr(filename, vals[0], 4, vals[3])
-                        log.addErr(filename, vals[0], 5, 'Ошибка: неверный ОГРН')
-                except ValueError:
-                    vals[3] = f'Ошибка: неверный тип ОГРН ({vals[3]})'
-                    vals.insert(4, 'Ошибка: неверный ОГРН')
-                    log.addErr(filename, 4, vals[0], vals[3])
-                    log.addErr(filename, 5, vals[0], 'Ошибка: неверный ОГРН')
-            if (not(vals[5] == '' and empty_arr[5])):
-                try:
-                    int(kpp)
-                    if len(kpp) == 9:
-                        vals[5] = kpp
-                        vals.insert(6, kpp[4:6])
-                    else:
-                        vals[5] = f'Ошибка: неверная длина КПП ({vals[5]})'
-                        vals.insert(6, 'Ошибка: неверный КПП')
-                        log.addErr(filename, vals[0], 6, vals[5])
-                        log.addErr(filename, vals[0], 7, 'Ошибка: неверный КПП')
-                except ValueError:
-                    vals[5] = f'Ошибка: неверный тип КПП ({vals[5]})'
-                    vals.insert(6, 'Ошибка: неверный КПП')
-                    log.addErr(filename, 6, vals[0], vals[5])
-                    log.addErr(filename, 7, vals[0], 'Ошибка: неверный КПП')
-
-            for i in (str_ind):
-                if (vals[i].isdigit()):
-                    vals[i] = f'Ошибка: текстовое поле содержит число ({vals[i]})'
-                    log.addErr(filename, vals[0], i+1, vals[i])
-
-            for i in (int_ind):
-                if (not vals[i].isdigit() and vals[i] != ''):
-                    vals[i] = f'Ошибка: числовое поле содержит текст ({vals[i]})'
-                    log.addErr(filename, vals[0], i+1, vals[i])
-            if (not(vals[11] == '' and empty_arr[11])):
-                if (rules_arr[0]):
-                    if (re.search(r'[\w\s]*сред[\w\s]*проф[\w\s]*', vals[7].lower()) and not re.search(r'[\w\s]*сред[\w\s]*проф[\w\s]*', vals[11].lower())):
-                        vals[11] = f"Ошибка: несоответсвие с полем \"Вид документа\" ({vals[11]})"
-                        log.addErr(filename, vals[0], 12, vals[11])
-                    elif (re.search(r'[\w\s]*высш[\w\s]*проф[\w\s]*', vals[7]) and not re.search(r'[\w\s]*высш[\w\s]*проф[\w\s]*', vals[11])):
-                        vals[11] = f"Ошибка: несоответсвие с полем \"Вид документа\" ({vals[11]})"
-                        log.addErr(filename, vals[0], 12, vals[11])
-            if (not(vals[16] == '' and empty_arr[16])):
-                if (rules_arr[1]):
-                    c_check = code_check(vals[16], vals[11])
-                    if (c_check == 1):
-                        vals[16] = 'Ошибка: неверное значение({0}), возможно имелось ввиду {1}'.format(vals[16], vals[16][0:2] + '.' + vals[16][2:4] + '.' + vals[16][4:6])
-                        log.addErr(filename, vals[0], 17, vals[16])
-                    elif (c_check == 2):
-                        vals[16] = 'Ошибка: неверное значение({0}), возможно имелось ввиду {1}'.format(vals[16], vals[16][0:3] + vals[16][3:6] + vals[16][8:10])
-                        log.addErr(filename, vals[0], 17, vals[16])
-                    elif (c_check == 4):
-                        vals[16] = f'Ошибка: неверная длина строки ({vals[16]})'
-                        log.addErr(filename, vals[0], 17, vals[16])
-                    elif c_check in [5, 6, 7, 8, 9]:
-                        vals[16] = f'Ошибка: код специальности не совпадает с уровнем образования ({vals[16]})'
-                        log.addErr(filename, vals[0], 17, vals[16])
-                    elif (c_check == -1):
-                        vals[16] = f'Ошибка: неверный тип поля ({vals[16]})'
-                        log.addErr(filename, vals[0], 17, vals[16])
-
-
-
-            for i in range(23, 26):
-                try:
-                    if (name_check(vals[i])):
-                        vals[i] = f'Ошибка: поле содержит символы латинского алфавита или цифры ({vals[i]})'
-                        log.addErr(filename, vals[0], i+1, vals[i])
-                except TypeError:
-                    vals[i] = f'Ошибка: неверный тип поля ({vals[i]})'
-                    log.addErr(filename, vals[0], i+1, vals[i])
-            for i in range(33, 36):
-                try:
-                    if (name_check(vals[i])):
-                        vals[i] = f'Ошибка: поле содержит символы латинского алфавита или цифры ({vals[i]})'
-                        log.addErr(filename, vals[0], i+1, vals[i])
-                except TypeError:
-                    vals[i] = f'Ошибка: неверный тип поля ({vals[i]})'
-                    log.addErr(filename, vals[0], i+1, vals[i])
-
-            for i in (date_ind):
-                if (not(vals[i] == '' and empty_arr[i])):
-                    try:
-                        datetime.datetime.strptime(vals[i], '%d.%m.%Y')
-                        if i == 26:
-                            try:
-                                if (birthday_check(vals[26], vals[20])):
-                                    vals[26] = f'Ошибка: неверный возраст ({vals[26]})'
-                                    log.addErr(filename, vals[0], 27, vals[26])
-                            except IndexError:
-                                vals[26] = f'Ошибка: неверный тип поля ({vals[26]})'
-                                log.addErr(filename, vals[0], 27, vals[26])
-                    except ValueError:
-                        vals[i] = f'Ошибка: неверная дата ({vals[i]})'
-                        log.addErr(filename, vals[0], i+1, vals[i])
-            if (not(vals[27] == '' and empty_arr[27])):
-                if(sex_check(vals[27], vals[25])):
-                    vals[27] = f'Ошибка: неверный пол ({vals[27]})'
-                    log.addErr(filename, vals[0], 28, vals[27])
-
-            for i in range(len(empty_arr)):
-                if (not empty_arr[i] and vals[i] == ''):
-                    vals[i] = 'Ошибка: пустое поле'
-                    log.addErr(filename, vals[0], i+1, vals[i])
-
-            sql = f'''
-                INSERT INTO {tb_name} 
-                VALUES (?, ?, ? , ?, ? , ?,
-                        ?, ?, ? , ? , ?, ?,
-                        ?, ?, ? , ? , ?,
-                        ?, ?, ? , ? , ?,
-                        ?, ?, ? , ? , ?,
-                        ?, ?, ? , ? , ?,
-                        ?, ?, ? , ?)
-                '''
-            self.crsr.execute(sql,  (vals[0], vals[1], vals[2], vals[3], vals[4],
-                                    vals[5], vals[6], vals[7], vals[8], vals[9],
-                                    vals[10], vals[11], vals[12], vals[13], vals[14],
-                                    vals[15], vals[16], vals[17], vals[18], vals[19],
-                                    vals[20], vals[21], vals[22], vals[23], vals[24],
-                                    vals[25], vals[26], vals[27], vals[28], vals[29],
-                                    vals[30], vals[31], vals[32], vals[33], vals[34], vals[35]))
-            '''
-        id 0
-        [Название документа] 1
-        Организация 2
-        ОГРН    3
-        [Порядковый номер субъекта] 4
-        КПП 5
-        [Признак филиала, либо головной организации] 6
-        [Вид документа] 7
-        [Статус документа] 8
-        [Подтверждение утраты] 9
-        [Подтверждение обмена] 10  
-        [Уровень образования] 11 
-        [Серия документа]   12
-        [Номер документа]   13
-        [Дата выдачи]   14
-        [Регистрационный номер]     15
-        [Код специальности, направления подготовки]     16
-        [Наименование специальности, направления подготовки] 17
-        [Наименование квалификации] 18
-        [Образовательная программа] 19
-        [Год поступления] 20
-        [Год окончания] 21
-        [Срок обучения, лет] 22
-        [Фамилия получателя] 23
-        [Имя получателя] 24
-        [Отчество получателя] 25
-        [Дата рождения получателя] 26
-        [Пол получателя] 27
-        [Наименование документа об образовании (оригинала)] 28
-        [Серия (оригинала)] 29
-        [Номер (оригинала)] 30
-        [Регистрационный N (оригинала)] 31
-        [Дата выдачи (оригинала)] 32
-        [Фамилия получателя (оригинала)] 33
-        [Имя получателя (оригинала)] 34
-        [Отчество получателя (оригинала)] 35
-        str_ind = [1, 2, 7, 8, 9, 10, 11, 17, 18, 19, 23, 24, 25, 27]
-        int_ind = [0, 3, 4, 5, 6, 12, 13, 15, 20, 21, 22]
-        date_ind = [14, 26]
-
-            '''
-        self.cnxn.commit()
-
-class Log:
-    def __init__(self):
-        self.fileCount = 0
-        self.rows = []
-        self.files = []
-        self.errors = []
-
-    def __del__(self):
-        del self.fileCount
-        del self.rows
-        del self.files
-        del self.errors
-
-    def addFile(self, filename):
-        self.fileCount += 1
-        self.files.append(filename)
-    def addRec(self, filename, rowCount):
-        self.rows.append((filename, rowCount))
-    def addErr(self, filename, rID, index, err):
-        self.errors.append((filename, rID, index, err))
-    def getFiles(self):
-        return(self.files, self.fileCount)
-    def getRecs(self):
-        return(self.rows)
-    def getErr(self):
-        return(self.errors)
-    def createLog(self, name = None):
-        name = datetime.datetime.now().strftime("%d-%m-%y--%H-%M-%S") + '.log'
-        with open(name, 'w') as file:
-            file.write (f'Добавленные файлы ({self.fileCount}):\n')
-            for i in range(len(self.files)):
-                file.write(self.files[i] + f' = {self.rows[i][1]} записей\n')
-            file.write (f'------------------------------------------\nОшибки ({len(self.errors)})\n')
-            for i in self.errors:
-                file.write(f'Имя файла: {i[0]}\nID: {i[1]}\nЯчейка: {i[2]}\n{i[3]}\n')
-
-
-
-def fileCheck(filename):
-    with open(filename, 'r') as file:
-        data = file.readlines()
-
-    i = 1
-    while (i < len(data) - 1):
-        if (data[i+1][0].isdigit()):
-            i+=1
+                tmp_2 = (tmp % 11) % 10
+            if tmp_2 != int(OGRN[i][12]):
+                OGRN[i] = "Ошибка! Недопустимая контрольная сумма ОГРН " + OGRN[i]
+                ERROR_DICT['Недопустимая контрольная сумма ОГРН'] += 1
+                flag = 1
+            if flag == 0:
+                num_sub_RF.append(OGRN[i][3:5])
+            else:
+                num_sub_RF.append("Ошибка в ОГРН")
         else:
-            data[i] = data[i][:-1] + ''
-            data[i] = data[i] + data[i+1]
-            data.pop(i+1)
-        
+            OGRN[i] = "Ошибка! Недопустимое количество символов ОГРН: " + len(OGRN[i]) + ", Нужно 13; " + OGRN[i]
+            ERROR_DICT['Недопустимое количество символов ОГРН'] += 1
+            num_sub_RF.append("Ошибка в ОГРН")
+        OGRN[i] = OGRN[i]
+        if len(KPP[i]) != 9:
+            KPP[i] = "Ошибка! Недопустимое количество символов КПП: " + len(KPP[i]) + ", Нужно 9; " + KPP[i]
+            ERROR_DICT['Недопустимое количество символов КПП'] += 1
+        KPP[i] = KPP[i] 
+        priznak_organiz_from_KPP.append(KPP[i][4:6])
+    return (OGRN, KPP, num_sub_RF, priznak_organiz_from_KPP)
 
+def log(path_to_csv, path_to_directory, data):
+    txt_patx = path_to_directory + '/log.log'
+    if os.path.exists(txt_patx):
+       os.remove(txt_patx)
+    count = 0
+    num_rec = 0
     for i in range(len(data)):
-        if (data[i].count(';') < 33):
-            data[i] = data[i][:-1] + ';'*(33 - data[i].count(';')) + data[i][-1:]
-        elif (data[i].count(';') > 33):
-            data[i] = data[i][:(32-data[i].count(';'))] + data[i][-1:]
-    with open(filename, 'w') as file:
-        file.writelines(data)
+        num_rec += len(data[i])
+    num_rec -= len(data)
+    n = 0
+    with open(txt_patx,'w') as out:
+        out.write('Количество файлов: ' + str(len(path_to_csv)) + '\n')
+        out.write('Всего записей: ' + str(num_rec) + '\n')
+        out.write('Количество ошибок: \n')
+        for key,val in ERROR_DICT.items():
+            out.write('    {}: {}\n'.format(key,val))
+            count += val
+        out.write('Всего ошибок: ' + str(count) + '\n')
+        for k in range(len(data)):
+            for i in range(1, len(data[k])):
+                n += 1
+                for j in range(len(data[k][i])):
+                    if re.search(r'Ошибка!', data[k][i][j]):
+                        if j < 5:
+                            out.write('Ячейка с id: ' + str(data[k][i][0]) + ', столбец: ' + str(j+1) + ' содержит ошибку: ' + str(re.search(' [А-Яа-я ]+;', data[k][i][j])[0]) + '\n')
+                        else:
+                            out.write('Ячейка с id: ' + str(data[k][i][0]) + ', столбец: ' + str(j+3) + ' содержит ошибку: ' + str(re.search(' [А-Яа-я ]+;', data[k][i][j])[0]) + '\n')
+   
+def create_table(db, data):
+    sql = 'CREATE TABLE t1( \
+                [' + data[0][0] + '] VARCHAR(50), \
+                [' + data[0][1] + '] VARCHAR(50),\
+                [' + data[0][2] + '] VARCHAR(100),\
+                [' + data[0][3] + '] VARCHAR(100),\
+                [Номер субъекта РФ (из ОГРН)] VARCHAR(2),\
+                [' + data[0][4] + '] VARCHAR(100),\
+                [Признак филиала, либо головной организации] VARCHAR(2),\
+                [' + data[0][5] + '] VARCHAR(100),\
+                [' + data[0][6] + '] VARCHAR(50),\
+                [' + data[0][7] + '] VARCHAR(50),\
+                [' + data[0][8] + '] VARCHAR(50),\
+                [' + data[0][9] + '] VARCHAR(50),\
+                [' + data[0][10] + '] VARCHAR(50),\
+                [' + data[0][11] + '] VARCHAR(50),\
+                [' + data[0][12] + '] VARCHAR(50),\
+                [' + data[0][13] + '] VARCHAR(50),\
+                [' + data[0][14] + '] VARCHAR(150),\
+                [' + data[0][15] + '] VARCHAR(50),\
+                [' + data[0][16] + '] VARCHAR(50),\
+                [' + data[0][17] + '] VARCHAR(50),\
+                [' + data[0][18] + '] VARCHAR(50),\
+                [' + data[0][19] + '] VARCHAR(50),\
+                [' + data[0][20] + '] VARCHAR(100),\
+                [' + data[0][21] + '] VARCHAR(50),\
+                [' + data[0][22] + '] VARCHAR(50),\
+                [' + data[0][23] + '] VARCHAR(50),\
+                [' + data[0][24] + '] VARCHAR(50),\
+                [' + data[0][25] + '] VARCHAR(50),\
+                [' + data[0][26] + '] VARCHAR(50),\
+                [' + data[0][27] + '] VARCHAR(50),\
+                [' + data[0][28] + '] VARCHAR(50),\
+                [' + data[0][29] + '] VARCHAR(50),\
+                [' + data[0][30] + '] VARCHAR(50),\
+                [' + data[0][31] + '] VARCHAR(50),\
+                [' + data[0][32] + '] VARCHAR(50),\
+                [' + data[0][33] + '] VARCHAR(50)\
+                );'
+    try:
+        db.cursor().execute(sql)
+        db.commit()
+    except pypyodbc.ProgrammingError:
+            print('Таблица t1 уже существует')
 
 
-
-
-
-def main(rules_arr, empty_arr, files, obj):
-    progBar = obj.progressBar
-    test = DB(os.getcwd())
-    test.create_table('Tcsv')
-    log = Log()
-    m_empty_arr = empty_arr.copy()
-    m_empty_arr.insert(0, False)
-    m_empty_arr.insert(4, False)
-    m_empty_arr.insert(6, False)
-    filesCount = len(files)
+def add_data(db, data, OGRN, KPP, num_sub_RF, priznak_organiz_from_KPP, objWindow):
+    progBar = objWindow.progressBar
+    filesCount = len(data)
     completed = 0
-    for filename in files:
-        try:
-            completed += 1/filesCount * 100
-            progBar.setValue(completed)
-            a = []
-            fileCheck(filename)
-            log.addFile(filename)
-            with open(filename, "r", newline='') as csvfile:
-                reader = csv.DictReader(csvfile, delimiter=';')
-                rowCount = 0
-                for line in reader:            
-                    a.append(line)
-                    rowCount += 1
-                log.addRec(filename, rowCount)
-                base = os.path.splitext(os.path.basename(filename))[0]
-                test.insert('Tcsv', a, base, filename, log, rules_arr, m_empty_arr)
-        except:
-            obj.error_file(filename)
-            continue
-            
-
+    for j in range(len(data)):
+        completed += 100/filesCount
+        progBar.setValue(completed)
+        for i in range(1, len(data[j])):
+            db.cursor().execute("INSERT INTO t1 VALUES\
+                           ('" + data[j][i][0] + "','" + data[j][i][1] + "','" + data[j][i][2] + "','" + OGRN[j] + "','" + num_sub_RF[j] + "','" + KPP[j] + "','" + priznak_organiz_from_KPP[j] + "','"\
+                               + data[j][i][5] + "','" + data[j][i][6] + "','" + data[j][i][7] + "','" + data[j][i][8] + "','" + data[j][i][9] + "','"\
+                               + data[j][i][10] + "','" + data[j][i][11] + "','" + data[j][i][12] + "','" + data[j][i][13] + "','" + data[j][i][14] + "','"\
+                               + data[j][i][15] + "','" + data[j][i][16] + "','" + data[j][i][17] + "','" + data[j][i][18] + "','" + data[j][i][19] + "','"\
+                               + data[j][i][20] + "','" + data[j][i][21] + "','" + data[j][i][22] + "','" + data[j][i][23] + "','" + data[j][i][24] + "','"\
+                               + data[j][i][25] + "','" + data[j][i][26] + "','" + data[j][i][27] + "','" + data[j][i][28] + "','" + data[j][i][29] + "','"\
+                               + data[j][i][30] + "','" + data[j][i][31] + "','" + data[j][i][32] + "','" + data[j][i][33] + "');")
+    db.commit()
+    db.close()
     progBar.setValue(100)
-    log.createLog()
-    del log
-    return 1
+
+def f(user_rules_dict, empty_cells, files, objWindow):
+    print("Start time: " + str(datetime.datetime.now()))
+    try:
+        db = create_db()
+        OGRN, KPP = get_files_and_OGRN_KPP_from_name(files)
+        data = get_data_from_csv_and_check_num_delimiters(files)
+        print("Обработка csv: " + str(datetime.datetime.now()))
+        data = check_data_logic(user_rules_dict, empty_cells, data)
+        OGRN, KPP, num_sub_RF, priznak_organiz_from_KPP = check_OGRN_KPP_get_num_sub_RF(OGRN, KPP)
+        log(files, os.getcwd(), data)
+        create_table(db, data[0])
+        print("Добавленние в бд: " + str(datetime.datetime.now()))
+        add_data(db, data, OGRN, KPP, num_sub_RF, priznak_organiz_from_KPP, objWindow)
+        global ERROR_DICT
+        ERROR_DICT = ERROR_DICT.fromkeys(ERROR_DICT, 0)
+        print("Done! End time: " + str(datetime.datetime.now()) + "\n")
+        return 1
+    except:
+        print("Error! End time: " + str(datetime.datetime.now()) + "\n")
+        print('Ошибка:\n', traceback.format_exc())
+        return 0
