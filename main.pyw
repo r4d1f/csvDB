@@ -47,8 +47,7 @@ class ExampleApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
             self.msg1.exec()
         if ans == 2:
             self.msg2.exec()
-            for wf in wrong_files:
-                self.error_file(wf)
+            self.error_file(wrong_files)
 
     def set_rules(self):
         win = RulesWin(self.rules_arr)
@@ -62,10 +61,10 @@ class ExampleApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
         win.exec()
         self.empty_arr = win.get_empty()
 
-    def error_file(self, file):
+    def error_file(self, files):
         self.errmsg = QtWidgets.QMessageBox()
         self.errmsg.setWindowTitle('Ошибка')
-        self.errmsg.setText(f'Ошибка в файле {file}')
+        self.errmsg.setText(f'Ошибка в файлах: {files}')
         self.errmsg.exec()
 
 class RulesWin(QtWidgets.QDialog, rules.Ui_Dialog):
