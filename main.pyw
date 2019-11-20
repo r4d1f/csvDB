@@ -1,4 +1,4 @@
-## -*- coding: utf-8 -*-
+﻿##-*- coding: utf-8 -*-
 
 import sys  
 from PyQt5 import QtWidgets
@@ -40,7 +40,8 @@ class ExampleApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
         files = []
         for i in range(self.listWidget.count()):
             files.append(self.listWidget.item(i).text())
-        ans, wrong_files = source.f(self.rules_arr, self.empty_arr, files, self)
+        self.centralwidget.setEnabled(False)
+        ans, wrong_files = source.f1(self.rules_arr, self.empty_arr, files, self)
         if ans == 0:
             self.msg0.exec()
         if ans == 1:
@@ -48,6 +49,10 @@ class ExampleApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
         if ans == 2:
             self.msg2.exec()
             self.error_file(wrong_files)
+        self.centralwidget.setEnabled(True)
+
+    def on_update(self, data):
+        self.progressBar.setValue(data)
 
     def set_rules(self):
         win = RulesWin(self.rules_arr)
@@ -64,7 +69,10 @@ class ExampleApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
     def error_file(self, files):
         self.errmsg = QtWidgets.QMessageBox()
         self.errmsg.setWindowTitle('Ошибка')
-        self.errmsg.setText(f'Ошибка в файлах: {files}')
+        error_str = 'Ошибка в файлах:\n'
+        for file in files:
+            error_str+= str(file) + '\n'
+        self.errmsg.setText(error_str)
         self.errmsg.exec()
 
 class RulesWin(QtWidgets.QDialog, rules.Ui_Dialog):
