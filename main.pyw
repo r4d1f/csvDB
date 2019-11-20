@@ -16,9 +16,15 @@ class ExampleApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.btnAddToDB.clicked.connect(self.add_to_db)
         self.btnRules.clicked.connect(self.set_rules)
         self.btnEmpty.clicked.connect(self.set_empty)
-        self.msg = QtWidgets.QMessageBox()
-        self.msg.setWindowTitle('Информация')
-        self.msg.setText('Файлы успешно добавлены в базу данных')
+        self.msg0 = QtWidgets.QMessageBox()
+        self.msg0.setWindowTitle('Информация')
+        self.msg0.setText('Ошибка! Проверьте файлы')
+        self.msg1 = QtWidgets.QMessageBox()
+        self.msg1.setWindowTitle('Информация')
+        self.msg1.setText('Файлы успешно добавлены в базу данных')
+        self.msg2 = QtWidgets.QMessageBox()
+        self.msg2.setWindowTitle('Информация')
+        self.msg2.setText('В некоторых файлах обнаружены ошибки, нажмите "OK" для получения Информации')
         self.rules_arr = [False, False]
         self.empty_arr = [False for _ in range(0, 33)]
         for i in range(25, 33):
@@ -34,8 +40,15 @@ class ExampleApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
         files = []
         for i in range(self.listWidget.count()):
             files.append(self.listWidget.item(i).text())
-        if source.f(self.rules_arr, self.empty_arr, files, self):
-            self.msg.exec()
+        ans, wrong_files = source.f(self.rules_arr, self.empty_arr, files, self)
+        if ans == 0:
+            self.msg0.exec()
+        if ans == 1:
+            self.msg1.exec()
+        if ans == 2:
+            self.msg2.exec()
+            for wf in wrong_files:
+                self.error_file(wf)
 
     def set_rules(self):
         win = RulesWin(self.rules_arr)

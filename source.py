@@ -38,20 +38,29 @@ def create_db():
 
 def get_files_and_OGRN_KPP_from_name(files):
     csv_files_in_directory = []
+    wrong_files = []
+    correct_files = []
     for f in files:
-        csv_files_in_directory.append(re.search(r'\d+-\d+[\s\S]*\.csv', f)[0])
+        try:
+            csv_files_in_directory.append(re.search(r'\d+-\d+[\s\S]*\.csv', f)[0])
+            correct_files.append(f)
+        except:
+            wrong_files.append(f)
     OGRN = []
     KPP = []
-    for i in range(len(files)):
+    for i in range(len(csv_files_in_directory)):
         OGRN.append(csv_files_in_directory[i][0:13])
         KPP.append(csv_files_in_directory[i][14:23])
-    return (OGRN, KPP)
+    return (OGRN, KPP, wrong_files, correct_files)
 
-def get_data_from_csv_and_check_num_delimiters(path_to_csv):
+def get_data_from_csv_and_check_num_delimiters(path_to_csv, wrong_files):
     data = []
     for i in range(len(path_to_csv)):
         with open(path_to_csv[i], newline='') as csvfile:
-            data.append(list(csv.reader(csvfile, delimiter=';')))
+            try:
+                data.append(list(csv.reader(csvfile, delimiter=';')))
+            except:
+                wrong_files.append(csvfile)
             for j in range(1, len(data[i])):
                 if (len(data[i][j]) < 34):
                     if re.search(r'\d\d\d\d\d\d\d\d',data[i][0]):
@@ -62,7 +71,7 @@ def get_data_from_csv_and_check_num_delimiters(path_to_csv):
                             data[i][j].insert(0,'') 
                 if (len(data[i][j]) > 34):
                      data[i][j] = data[i][j][0:-(len(data[i][j]) - 34)]
-    return data
+    return (data, wrong_files)
            
 def check_data_logic(user_rules_dict, empty_cells, data):
     len_data = 0
@@ -335,20 +344,26 @@ def f(user_rules_dict, empty_cells, files, objWindow):
     print("Start time: " + str(datetime.datetime.now()))
     try:
         db = create_db()
-        OGRN, KPP = get_files_and_OGRN_KPP_from_name(files)
-        data = get_data_from_csv_and_check_num_delimiters(files)
-        print("Обработка csv: " + str(datetime.datetime.now()))
-        data, errors = check_data_logic(user_rules_dict, empty_cells, data)
-        OGRN, KPP, num_sub_RF, priznak_organiz_from_KPP = check_OGRN_KPP_get_num_sub_RF(OGRN, KPP)
-        log(files, os.getcwd(), errors, data)
-        create_table(db, data[0])
-        print("Добавленние в бд: " + str(datetime.datetime.now()))
-        add_data(db, data, OGRN, KPP, num_sub_RF, priznak_organiz_from_KPP, objWindow, errors)
-        global ERROR_DICT
-        ERROR_DICT = ERROR_DICT.fromkeys(ERROR_DICT, 0)
-        print("Done! End time: " + str(datetime.datetime.now()) + "\n")
-        return 1
+        OGRN, KPP, wrong_files, correct_files = get_files_and_OGRN_KPP_from_name(files)
+        if len(correct_files) != 0:
+            data, wrong_files = get_data_from_csv_and_check_num_delimiters(correct_files, wrong_files)
+            print("Обработка csv: " + str(datetime.datetime.now()))
+            data, errors = check_data_logic(user_rules_dict, empty_cells, data)
+            OGRN, KPP, num_sub_RF, priznak_organiz_from_KPP = check_OGRN_KPP_get_num_sub_RF(OGRN, KPP)
+            log(files, os.getcwd(), errors, data)
+            create_table(db, data[0])
+            print("Добавленние в бд: " + str(datetime.datetime.now()))
+            add_data(db, data, OGRN, KPP, num_sub_RF, priznak_organiz_from_KPP, objWindow, errors)
+            global ERROR_DICT
+            ERROR_DICT = ERROR_DICT.fromkeys(ERROR_DICT, 0)
+            print("Done! End time: " + str(datetime.datetime.now()) + "\n")
+            if len(wrong_files) == 0:
+                return (1, [])
+            else:
+                return (2, wrong_files)
+        else:
+            return (0, wrong_files)
     except:
         print("Error! End time: " + str(datetime.datetime.now()) + "\n")
         print('Ошибка:\n', traceback.format_exc())
-        return 0
+        return (0, [])
