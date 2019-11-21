@@ -27,7 +27,8 @@ class SlowTask(QtCore.QThread):
                 data, wrong_files = self.get_data_from_csv_and_check_num_delimiters(correct_files, wrong_files)
                 print("Обработка csv: " + str(datetime.datetime.now()))
                 data, errors = self.check_data_logic(user_rules_dict, empty_cells, data)
-                OGRN, KPP, num_sub_RF, priznak_organiz_from_KPP = self.check_OGRN_KPP_get_num_sub_RF(OGRN, KPP)
+                len_err = [len(data[i])-1 for i in range(len(data))]
+                OGRN, KPP, num_sub_RF, priznak_organiz_from_KPP, errors = self.check_OGRN_KPP_get_num_sub_RF(OGRN, KPP, errors, len_err)
                 self.log(files, os.getcwd(), errors, data)
                 self.create_table(db, data[0])
                 print("Добавленние в бд: " + str(datetime.datetime.now()))
@@ -63,13 +64,14 @@ class SlowTask(QtCore.QThread):
                 csv_files_in_directory.append(re.search(r'\d+-\d+[\s\S]*\.csv', f)[0])
                 correct_files.append(f)
             except:
-                print(1)
                 wrong_files.append(f)
         OGRN = []
         KPP = []
         for i in range(len(csv_files_in_directory)):
-            OGRN.append(csv_files_in_directory[i][0:13])
-            KPP.append(csv_files_in_directory[i][14:23])
+            base = csv_files_in_directory[i][:-4]
+            base = base.split('-')
+            OGRN.append(base[0])
+            KPP.append(base[1])
         return (OGRN, KPP, wrong_files, correct_files)
 
     def get_data_from_csv_and_check_num_delimiters(self, path_to_csv, wrong_files):
@@ -96,6 +98,52 @@ class SlowTask(QtCore.QThread):
         self.percent = 20
         self.updated.emit(int(self.percent))
         return (data, wrong_files)
+
+    def check_OGRN_KPP_get_num_sub_RF(self, OGRN, KPP, errors, len_err):
+        num_sub_RF = []
+        priznak_organiz_from_KPP = []
+        for i in range(len(OGRN)):
+            if len(OGRN[i]) == 13:
+                tmp = int(OGRN[i][0:-1])
+                if tmp % 11 <= 9:
+                    tmp_2 = tmp % 11
+                else:
+                    tmp_2 = (tmp % 11) % 10
+                if tmp_2 != int(OGRN[i][12]):
+                    n = 0
+                    for k in range(i):
+                        n += len_err[k]
+                    for j in range(len_err[i]):
+                        errors[n] += "(ОГРН) Неверная контрольная сумма; "
+                        errors[n] += "(Номер субъекта РФ) Ошибка в ОГРН; "
+                        n += 1
+                    ERROR_DICT['Недопустимая контрольная сумма ОГРН'] += 1
+                    num_sub_RF.append("--")
+                else:
+                    num_sub_RF.append(OGRN[i][3:5])
+            else:
+                n = 0
+                for k in range(i):
+                    n += len_err[k]
+                for j in range(len_err[i]):
+                    errors[n] += "(ОГРН) Недопустимое количество символов; "
+                    errors[n] += "(Номер субъекта РФ) Ошибка в ОГРН; "
+                    n += 1
+                ERROR_DICT['Недопустимое количество символов ОГРН'] += 1
+                num_sub_RF.append("--")
+            if len(KPP[i]) != 9:
+                n = 0
+                for k in range(i):
+                    n += len_err[k]
+                for j in range(len_err[i]):
+                    errors[n] += "(КПП) Недопустимое количество символов; "
+                    errors[n] += "(Признак филиала, либо головной организации) Ошибка в КПП; "
+                    n += 1
+                    priznak_organiz_from_KPP.append('--')
+                ERROR_DICT['Недопустимое количество символов КПП'] += 1
+            else:
+                priznak_organiz_from_KPP.append(KPP[i][4:6])
+        return (OGRN, KPP, num_sub_RF, priznak_organiz_from_KPP, errors)
                
     def check_data_logic(self, user_rules_dict, empty_cells, data):
         len_data = 0
@@ -109,168 +157,120 @@ class SlowTask(QtCore.QThread):
                 try:
                     int(data[k][i][0])
                 except:
-                    errors[n] += "(0) Ожидалось число; "
+                    errors[n] += "(id) Ожидалось число; "
                     ERROR_DICT['Ожидалось число'] += 1
                 try:
                     int(data[k][i][10])
                 except:
-                    errors[n] += "(12) Ожидалось число; "
+                    errors[n] += "(Серия документа) Ожидалось число; "
                     ERROR_DICT['Ожидалось число'] += 1
                 try:
                     int(data[k][i][11])
                 except:
-                    errors[n] += "(13) Ожидалось число; "
+                    errors[n] += "(Номер документа) Ожидалось число; "
                     ERROR_DICT['Ожидалось число'] += 1
                 try:
                     int(data[k][i][13])
                 except:
-                    errors[n] += "(15) Ожидалось число; "
+                    errors[n] += "(Регистрационный номер) Ожидалось число; "
                     ERROR_DICT['Ожидалось число'] += 1
                 try:
                     int(data[k][i][18])
                 except:
-                    errors[n] += "(20) Ожидалось число; "
+                    errors[n] += "(Год поступления) Ожидалось число; "
                     ERROR_DICT['Ожидалось число'] += 1
                 try:
                     int(data[k][i][19])
                 except:
-                    errors[n] += "(21) Ожидалось число; "
+                    errors[n] += "(Год окончания) Ожидалось число; "
                     ERROR_DICT['Ожидалось число'] += 1
-                    int(data[k][i][20])
-                try:
-                    if data[k][i][29] != '':
-                        int(data[k][i][28])
-                except:
-                    errors[n] += "(30) Ожидалось число; "
-                    ERROR_DICT['Ожидалось число'] += 1
-                try:
-                    if data[k][i][29] != '':
-                        int(data[k][i][29])
-                except:
-                    errors[n] += "(29) Ожидалось число; "
-                    ERROR_DICT['Ожидалось число'] += 1
-
 
                 if re.search(r'[a-zA-Z0-9]', data[k][i][21]):
-                    errors[n] += "(23) Латинские буквы или цифры в строке; "
+                    errors[n] += "(Фамилия получателя) Латинские буквы или цифры в строке; "
                     ERROR_DICT['Латинские буквы или цифры в строке'] += 1
                 if re.search(r'[a-zA-Z0-9]', data[k][i][22]):
-                    errors[n] += "(23) Латинские буквы или цифры в строке; "
+                    errors[n] += "(Имя получателя) Латинские буквы или цифры в строке; "
                     ERROR_DICT['Латинские буквы или цифры в строке'] += 1
                 if re.search(r'[a-zA-Z0-9]', data[k][i][23]):
-                    errors[n] += "(25) Латинские буквы или цифры в строке; "
+                    errors[n] += "(Отчество получателя) Латинские буквы или цифры в строке; "
                     ERROR_DICT['Латинские буквы или цифры в строке'] += 1
                 if re.search(r'[a-zA-Z0-9]', data[k][i][31]):
-                    errors[n] += "(33) Латинские буквы или цифры в строке; "
+                    errors[n] += "(Фамилия получателя (оригинала)) Латинские буквы или цифры в строке; "
                     ERROR_DICT['Латинские буквы или цифры в строке'] += 1
                 if re.search(r'[a-zA-Z0-9]', data[k][i][32]):
-                    errors[n] += "(34) Латинские буквы или цифры в строке; "
+                    errors[n] += "(Имя получателя (оригинала)) Латинские буквы или цифры в строке; "
                     ERROR_DICT['Латинские буквы или цифры в строке'] += 1
                 if re.search(r'[a-zA-Z0-9]', data[k][i][33]):
-                    errors[n] += "(35) Латинские буквы или цифры в строке; "
+                    errors[n] += "(Отчество получателя (оригинала)) Латинские буквы или цифры в строке; "
                     ERROR_DICT['Латинские буквы или цифры в строке'] += 1
 
                 if re.search(r'\d\d.\d\d.\d\d\d\d', data[k][i][12]) == None:
-                    errors[n] += "(14) Ожидалась дата; "
+                    errors[n] += "(Дата выдачи) Ожидалась дата; "
                     ERROR_DICT['Ожидалась дата'] += 1
                 if re.search(r'\d\d.\d\d.\d\d\d\d', data[k][i][24]) == None:
-                    errors[n] += "(26) Ожидалась дата; "
+                    errors[n] += "(Дата рождения получателя) Ожидалась дата; "
                     ERROR_DICT['Ожидалась дата'] += 1
                 else:
                     if len(data[k][i][18]) == 4:
-                        if (int(data[k][i][18]) - int(data[k][i][24][6:10])) < 15:
-                           errors[n] += "(26) Некорректная дата рождения; "
+                        if ((int(data[k][i][18]) - int(data[k][i][24][6:10])) < 15) | ((int(data[k][i][18]) - int(data[k][i][24][6:10])) > 100):
+                           errors[n] += "(Дата рождения получателя) Некорректная дата рождения; "
                            ERROR_DICT['Некорректная дата рождения'] += 1
                 if data[k][i][30] != '':
                     if re.search(r'\d\d.\d\d.\d\d\d\d', data[k][i][30]) == None: 
-                        errors[n] += "(32) Ожидалась дата; "
+                        errors[n] += "(Дата выдачи (оригинала)) Ожидалась дата; "
                         ERROR_DICT['Ожидалась дата'] += 1
 
                 if user_rules_dict[1] == True:
                     if re.search(r'\d\d.\d\d.\d\d$', data[k][i][14]) == None:
                         if re.search(r'\d\d.\d\d.\d\d\d\d', data[k][i][14]): 
-                            errors[n] += "(16) Неверный код специальности; "
+                            errors[n] += "(Код специальности, направления подготовки) Неверный код специальности; "
                             ERROR_DICT['Неверный код специальности'] += 1
                         elif re.search(r'\d\d\d\d\d\d', data[k][i][14]):
-                            errors[n] += "(16) Неверный код специальности; "
+                            errors[n] += "(Код специальности, направления подготовки) Неверный код специальности; "
                             ERROR_DICT['Неверный код специальности'] += 1
                         else:
-                            errors[n] += "(16) Неверный код специальности; "
+                            errors[n] += "(Код специальности, направления подготовки) Неверный код специальности; "
                             ERROR_DICT['Неверный код специальности'] += 1
                     else:
                         if re.search(r'специалистов', data[k][i][9]):
                             if data[k][i][14][3:5] != '02':
-                                errors[n] += "(16) Код специальности не совпадает с уровнем образования; "
+                                errors[n] += "(Код специальности, направления подготовки) Код специальности не совпадает с уровнем образования; "
                                 ERROR_DICT['Код специальности не совпадает с уровнем образования'] += 1
                         if re.search(r'рабочих', data[k][i][9]):
                             if data[k][i][14][3:5] != '01':
-                                errors[n] += "(16) Код специальности не совпадает с уровнем образования; "
+                                errors[n] += "(Код специальности, направления подготовки) Код специальности не совпадает с уровнем образования; "
                                 ERROR_DICT['Код специальности не совпадает с уровнем образования'] += 1
 
                 if user_rules_dict[0] == True:
                     if (re.search(r'средн[а-я ]+проф', data[k][i][5])):
                         if re.search(r'Средн[а-я ]+проф', data[k][i][9]) == None:
-                            errors[n] += "(11) Несоответствие виду документа об образовании; "
+                            errors[n] += "(Уровень образования) Несоответствие виду документа об образовании; "
                             ERROR_DICT['Несоответствие виду документа об образовании'] += 1
 
                     if (re.search(r'высш[а-я ]+проф', data[k][i][5])):
                         if re.search(r'[Вв]ысш[а-я ]+проф', data[k][i][9]) == None:
-                            errors[n] += "(11) Несоответствие виду документа об образовании; "
+                            errors[n] += "(Уровень образования) Несоответствие виду документа об образовании; "
                             ERROR_DICT['Несоответствие виду документа об образовании'] += 1
 
                 if (data[k][i][25] == "Муж") | (data[k][i][25] == "Жен"):
                     if data[k][i][23] != '':
-                        if (re.search(r'[А-Яа-я]+ич', data[k][i][23]) != None) & (data[k][i][25] == "Жен"):
-                            errors[n] += "(27) Неверно указан пол; "
+                        if (data[k][i][23][-1] == "ч") & (data[k][i][25] == "Жен"):
+                            errors[n] += "(Пол получателя) Неверно указан пол; "
                             ERROR_DICT['Неверно указан пол'] += 1
-                        if (re.search(r'[А-Яа-я]+на', data[k][i][23]) != None) & (data[k][i][25] == "Муж"):
-                            errors[n] += "(27) Неверно указан пол; "
+                        if (data[k][i][23][-1] == "а") & (data[k][i][25] == "Муж"):
+                            errors[n] += "(Пол получателя) Неверно указан пол; "
                             ERROR_DICT['Неверно указан пол'] += 1
                 else:
-                    errors[n] += "(27) Неверные данные; "
+                    errors[n] += "(Пол получателя) Неверные данные; "
                     ERROR_DICT['Неверные данные'] += 1
 
                 for j in range(33):
                     if empty_cells[j] == False:
                         if data[k][i][j+1] == '':
-                            if j > 3:
-                                errors[n] += "(" + str(j+3) + ") Пустое значение; "
-                            else:
-                                errors[n] += "(" + str(j+1) + ") Пустое значение; "
+                            errors[n] += "(" + str(data[0][0][j+1]) + ") Пустое значение; "
                             ERROR_DICT['Пустое значение'] += 1
                 n += 1
         return (data, errors)
-
-    def check_OGRN_KPP_get_num_sub_RF(self, OGRN, KPP):#доделать ошибки в отдельное поле
-        num_sub_RF = []
-        priznak_organiz_from_KPP = []
-        flag = 0
-        for i in range(len(OGRN)):
-            if len(OGRN[i]) == 13:
-                tmp = int(OGRN[i][0:-1])
-                if tmp % 11 <= 9:
-                    tmp_2 = tmp % 11
-                else:
-                    tmp_2 = (tmp % 11) % 10
-                if tmp_2 != int(OGRN[i][12]):
-                    OGRN[i] = "Ошибка! Недопустимая контрольная сумма ОГРН " + OGRN[i]
-                    ERROR_DICT['Недопустимая контрольная сумма ОГРН'] += 1
-                    flag = 1
-                if flag == 0:
-                    num_sub_RF.append(OGRN[i][3:5])
-                else:
-                    num_sub_RF.append("Ошибка в ОГРН")
-            else:
-                OGRN[i] = "Ошибка! Недопустимое количество символов ОГРН: " + len(OGRN[i]) + ", Нужно 13; " + OGRN[i]
-                ERROR_DICT['Недопустимое количество символов ОГРН'] += 1
-                num_sub_RF.append("Ошибка в ОГРН")
-            OGRN[i] = OGRN[i]
-            if len(KPP[i]) != 9:
-                KPP[i] = "Ошибка! Недопустимое количество символов КПП: " + len(KPP[i]) + ", Нужно 9; " + KPP[i]
-                ERROR_DICT['Недопустимое количество символов КПП'] += 1
-            KPP[i] = KPP[i] 
-            priznak_organiz_from_KPP.append(KPP[i][4:6])
-        return (OGRN, KPP, num_sub_RF, priznak_organiz_from_KPP)
 
     def log(self, path_to_csv, path_to_directory, errors, data):
         name = datetime.datetime.now().strftime("%d-%m-%y--%H-%M-%S") + '.log'
@@ -284,12 +284,10 @@ class SlowTask(QtCore.QThread):
                 out.write('    {}: {}\n'.format(key,val))
                 count += val
             out.write('Всего ошибок: ' + str(count) + '\n')
-
             id_arr = []
             for i in range(len(data)):
                 for j in range(1,len(data[i])):
                     id_arr.append(data[i][j][0])
-
             for k in range(len(errors)):
                 if errors[k] != '':
                     out.write('id: (' + id_arr[k] + ')  Столбец: ' + str(errors[k]))
@@ -333,7 +331,7 @@ class SlowTask(QtCore.QThread):
                     [' + data[0][31] + '] VARCHAR(50),\
                     [' + data[0][32] + '] VARCHAR(50),\
                     [' + data[0][33] + '] VARCHAR(50),\
-                    [Информация об ошибках] VARCHAR(250)\
+                    [Информация об ошибках] MEMO\
                     );'
         try:
             db.cursor().execute(sql)

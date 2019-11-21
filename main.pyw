@@ -44,9 +44,9 @@ class ExampleApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
         ans, wrong_files = source.f1(self.rules_arr, self.empty_arr, files, self)
         if ans == 0:
             self.msg0.exec()
-        if ans == 1:
+        elif ans == 1:
             self.msg1.exec()
-        if ans == 2:
+        elif ans == 2:
             self.msg2.exec()
             self.error_file(wrong_files)
         self.centralwidget.setEnabled(True)
