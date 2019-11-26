@@ -8,6 +8,7 @@ import source
 import source_higher_education
 import rules
 import setempty
+import setempty_high
 import lvl
 
 class Message():
@@ -32,10 +33,8 @@ class ExampleApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.errLvl = Message('Ошибка', 'Не выбран уровень образования!')
         self.succMsg = Message('Успешно', 'Файлы успешно добавлены в базу данных')
         self.rules_arr = [False, False]
-        self.empty_arr = [False for _ in range(0, 33)]
         self.lvl_arr = [False, False]
-        for i in range(25, 33):
-            self.empty_arr[i] = True
+        self.empty_arr = []
     def browse_folder(self):
         self.listWidget.clear() 
         path = QtWidgets.QFileDialog.getOpenFileNames(self, "Выберите файлы", filter = "(*.csv)")
@@ -46,11 +45,11 @@ class ExampleApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
         files = []
         for i in range(self.listWidget.count()):
             files.append(self.listWidget.item(i).text())
-        self.centralwidget.setEnabled(False)
         if (self.lvl_arr[0] == False and self.lvl_arr[1] == False):
             self.errLvl.exec()
             return
-        elif self.lvl_arr[0] == True:
+        self.centralwidget.setEnabled(False)
+        if self.lvl_arr[0] == True:
             ans, wrong_files = source.f1(self.rules_arr, self.empty_arr, files, self)
         elif self.lvl_arr[1] == True:
             ans, wrong_files = source_higher_education.f1(self.rules_arr, self.empty_arr, files, self)   
@@ -73,16 +72,26 @@ class ExampleApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.rules_arr = win.get_rules()
 
     def set_empty(self):
-        win = EmptyWin(self.empty_arr)
-        win.setModal(True)
-        win.exec()
-        self.empty_arr = win.get_empty()
+        if (self.lvl_arr[0] == False and self.lvl_arr[1] == False):
+            self.errLvl.exec()
+            return
+        if (self.lvl_arr[0] == True):
+            win = EmptyMidWin(self.empty_arr)
+            win.setModal(True)
+            win.exec()
+            self.empty_arr = win.get_empty()
+        if (self.lvl_arr[1] == True):
+            win = EmptyHighWin(self.empty_arr)
+            win.setModal(True)
+            win.exec()
+            self.empty_arr = win.get_empty()
 
     def set_lvl(self):
-        win = LvlWin(self.lvl_arr)
+        win = LvlWin(self.lvl_arr, self.empty_arr)
         win.setModal(True)
         win.exec()
         self.lvl_arr = win.get_lvl()
+        self.empty_arr = win.get_empty_arr()
 
     def error_file(self, files):
         error_str = 'Ошибка в файлах:\n'
@@ -106,7 +115,26 @@ class RulesWin(QtWidgets.QDialog, rules.Ui_Dialog):
         def get_rules(self):
             return self.rules_arr
 
-class EmptyWin(QtWidgets.QDialog, setempty.Ui_Dialog):
+class EmptyMidWin(QtWidgets.QDialog, setempty.Ui_Dialog):
+    def __init__(self, empty_arr):
+            super().__init__()
+            self.setupUi(self)  
+            self.btnOK.clicked.connect(self.accept_empty)
+            i = 0
+            for checkbox in self.groupBox.findChildren(QtWidgets.QCheckBox):
+                checkbox.setChecked(empty_arr[i])
+                i += 1
+            self.empty_arr = empty_arr
+    def accept_empty(self):
+            i = 0
+            for checkbox in self.groupBox.findChildren(QtWidgets.QCheckBox):
+                self.empty_arr[i] = checkbox.isChecked()
+                i += 1
+            self.close()
+    def get_empty(self):
+        return self.empty_arr
+
+class EmptyHighWin(QtWidgets.QDialog, setempty_high.Ui_Dialog):
     def __init__(self, empty_arr):
             super().__init__()
             self.setupUi(self)  
@@ -126,19 +154,30 @@ class EmptyWin(QtWidgets.QDialog, setempty.Ui_Dialog):
         return self.empty_arr
 
 class LvlWin(QtWidgets.QDialog, lvl.Ui_Dialog):
-    def __init__(self, lvl_arr):
+    def __init__(self, lvl_arr, empty_arr):
         super().__init__()
         self.setupUi(self)  
         self.btnOK.clicked.connect(self.accept_lvl)
         self.radSred.setChecked(lvl_arr[0]) 
         self.radVish.setChecked(lvl_arr[1])
         self.lvl_arr = lvl_arr
+        self.empty_arr = empty_arr
     def accept_lvl(self):
         self.lvl_arr[0] = self.radSred.isChecked()
         self.lvl_arr[1] = self.radVish.isChecked()
+        if (self.lvl_arr[0]):
+            self.empty_arr = [False for _ in range(0, 33)]
+            for i in range(25, 33):
+                self.empty_arr[i] = True
+        elif (self.lvl_arr[1]):
+            self.empty_arr = [False for _ in range(0, 37)]
+            for i in range(29, 37):
+                self.empty_arr[i] = True
         self.close()
     def get_lvl(self):
         return self.lvl_arr
+    def get_empty_arr(self):
+        return self.empty_arr
 
 
 def main():
