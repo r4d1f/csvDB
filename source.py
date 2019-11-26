@@ -49,7 +49,7 @@ class SlowTask(QtCore.QThread):
             return (0, [])
 
     def create_db(self):
-        db_path = os.getcwd() + '/DB.mdb'
+        db_path = os.getcwd() + '/DB_s_e.mdb'
         if (not os.path.exists(db_path)):
             pypyodbc.win_create_mdb(db_path)    
         db = pypyodbc.win_connect_mdb(db_path) 
@@ -300,7 +300,7 @@ class SlowTask(QtCore.QThread):
                     out.write('\n')
 
     def create_table(self, db, data):
-        sql = 'CREATE TABLE t1( \
+        sql = 'CREATE TABLE Tcsv( \
                     [' + data[0][0] + '] VARCHAR(50), \
                     [' + data[0][1] + '] VARCHAR(50),\
                     [' + data[0][2] + '] VARCHAR(100),\
@@ -343,7 +343,7 @@ class SlowTask(QtCore.QThread):
             db.cursor().execute(sql)
             db.commit()
         except pypyodbc.ProgrammingError:
-                print('Таблица t1 уже существует')
+                print('Таблица Tcsv уже существует')
 
 
     def add_data(self, db, data, OGRN, KPP, num_sub_RF, priznak_organiz_from_KPP, objWindow, errors):
@@ -353,7 +353,7 @@ class SlowTask(QtCore.QThread):
             self.percent += 80/filesCount
             self.updated.emit(int(self.percent))
             for i in range(1, len(data[j])):
-                db.cursor().execute("INSERT INTO t1 VALUES\
+                db.cursor().execute("INSERT INTO Tcsv VALUES\
                                ('" + data[j][i][0] + "','" + data[j][i][1] + "','" + data[j][i][2] + "','" + OGRN[j] + "','" + num_sub_RF[j] + "','" + KPP[j] + "','" + priznak_organiz_from_KPP[j] + "','"\
                                    + data[j][i][5] + "','" + data[j][i][6] + "','" + data[j][i][7] + "','" + data[j][i][8] + "','" + data[j][i][9] + "','"\
                                    + data[j][i][10] + "','" + data[j][i][11] + "','" + data[j][i][12] + "','" + data[j][i][13] + "','" + data[j][i][14] + "','"\

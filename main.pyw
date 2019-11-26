@@ -5,6 +5,7 @@ from PyQt5 import QtWidgets
 import design  
 import os
 import source
+import source_higher_education
 import rules
 import setempty
 import lvl
@@ -38,19 +39,21 @@ class ExampleApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
     def browse_folder(self):
         self.listWidget.clear() 
         path = QtWidgets.QFileDialog.getOpenFileNames(self, "Выберите файлы", filter = "(*.csv)")
-
         if path:  
             for file_name in path[0]:  
                 self.listWidget.addItem(file_name)  
     def add_to_db(self):
-        if (self.lvl_arr[0] == False and self.lvl_arr[1] == False):
-            self.errLvl.exec()
-            return
         files = []
         for i in range(self.listWidget.count()):
             files.append(self.listWidget.item(i).text())
         self.centralwidget.setEnabled(False)
-        ans, wrong_files = source.f1(self.rules_arr, self.empty_arr, files, self)
+        if (self.lvl_arr[0] == False and self.lvl_arr[1] == False):
+            self.errLvl.exec()
+            return
+        elif self.lvl_arr[0] == True:
+            ans, wrong_files = source.f1(self.rules_arr, self.empty_arr, files, self)
+        elif self.lvl_arr[1] == True:
+            ans, wrong_files = source_higher_education.f1(self.rules_arr, self.empty_arr, files, self)   
         if ans == 0:
             self.errCheckFilesMsg.exec()
         elif ans == 1:
