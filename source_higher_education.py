@@ -80,11 +80,15 @@ class SlowTask(QtCore.QThread):
         for i in range(filesCount):
             self.percent += 20/filesCount
             self.updated.emit(int(self.percent))
-            with open(path_to_csv[i], newline='') as csvfile:
-                try:
-                    data.append(list(csv.reader(csvfile, delimiter=';')))
-                except:
-                    wrong_files.append(csvfile)
+            try:
+                with open(path_to_csv[i], newline='') as csvfile:
+                    try:
+                        data.append(list(csv.reader(csvfile, delimiter=';')))
+                    except:
+                        wrong_files.append(csvfile)
+            except:
+                path_to_csv[i] += ' - не удалось открыть'
+                wrong_files.append(path_to_csv[i])
         for i in range(len(data)):
             j=1
             while (j < len(data[i])-1):
