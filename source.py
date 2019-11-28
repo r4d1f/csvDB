@@ -85,22 +85,23 @@ class SlowTask(QtCore.QThread):
                     data.append(list(csv.reader(csvfile, delimiter=';')))
                 except:
                     wrong_files.append(csvfile)
-                j=1
-                while (j < len(data[i])-1):
-                    if (data[i][j+1][0].isdigit()):
-                        j+=1
-                    else:
-                        data[i][j][-1] += data[i][j+1][0]
-                        data[i][j+1].pop(0)
-                        data[i][j] += data[i][j+1]
-                        data[i].pop(j+1)
+        for i in range(len(data)):
+            j=1
+            while (j < len(data[i])-1):
+                if (data[i][j+1][0].isdigit()):
+                    j+=1
+                else:
+                    data[i][j][-1] += data[i][j+1][0]
+                    data[i][j+1].pop(0)
+                    data[i][j] += data[i][j+1]
+                    data[i].pop(j+1)
                 
-                for j in range(1, len(data[i])):
-                    if(len(data[i][j]) < 34):
-                        while(len(data[i][j]) < 34):
-                            data[i][j].append('')
-                    elif(len(data[i][j]) > 34):
-                        data[i][j] = data[i][j][0:-(len(data[i][j]) - 34)]
+            for j in range(1, len(data[i])):
+                if(len(data[i][j]) < 34):
+                    while(len(data[i][j]) < 34):
+                        data[i][j].append('')
+                elif(len(data[i][j]) > 34):
+                    data[i][j] = data[i][j][0:-(len(data[i][j]) - 34)]
         self.percent = 20
         self.updated.emit(int(self.percent))
         return (data, wrong_files)
