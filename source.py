@@ -83,7 +83,7 @@ class SlowTask(QtCore.QThread):
             try:
                 with open(path_to_csv[i], newline='') as csvfile:
                     try:
-                        data.append(list(csv.reader(csvfile, delimiter=';')))
+                        data.append(list(csv.reader(csvfile, delimiter=';', quoting=csv.QUOTE_NONE)))
                     except:
                         wrong_files.append(csvfile)
             except:
@@ -276,6 +276,7 @@ class SlowTask(QtCore.QThread):
                     ERROR_DICT['Неверные данные'] += 1
 
                 for j in range(33):
+                    data[k][i][j+1] = data[k][i][j+1].replace("\'", "\'\'")
                     if empty_cells[j] == False:
                         if data[k][i][j+1] == '':
                             errors[n] += "(" + str(data[0][0][j+1]) + ") Пустое значение; "
