@@ -42,14 +42,14 @@ class SlowTask(QtCore.QThread):
             for i in range(len(files_part)):
                 OGRN, KPP, wrong_files, correct_files = self.get_files_and_OGRN_KPP_from_name(files_part[i])
                 if len(correct_files) != 0:
-                    data, wrong_files = self.get_data_from_csv_and_check_num_delimiters(correct_files, wrong_files)
+                    data, wrong_files = self.get_data_from_csv_and_check_num_delimiters(correct_files, wrong_files, n)
                     print(i+1, ": Обработка csv:    " + str(datetime.datetime.now()))
                     data, errors = self.check_data_logic(user_rules_dict, empty_cells, data)
                     len_err = [len(data[i])-1 for i in range(len(data))]
                     OGRN, KPP, num_sub_RF, priznak_organiz_from_KPP, errors = self.check_OGRN_KPP_get_num_sub_RF(OGRN, KPP, errors, len_err)
                     self.create_table(db, data[0])
                     print(i+1, ": Добавленние в бд: " + str(datetime.datetime.now()))
-                    self.add_data(db, data, OGRN, KPP, num_sub_RF, priznak_organiz_from_KPP, objWindow, errors)
+                    self.add_data(db, data, OGRN, KPP, num_sub_RF, priznak_organiz_from_KPP, objWindow, errors, n)
                     print(i+1, ": Done! End time:   " + str(datetime.datetime.now()) + "\n")
                     w_f += wrong_files
                     data_log += data 
@@ -57,6 +57,8 @@ class SlowTask(QtCore.QThread):
                 else:
                     flag += 1
                     continue
+
+            self.updated.emit(100)
             self.log(files, os.getcwd(), errors_log, data_log)
             db.close()
             global ERROR_DICT
@@ -98,11 +100,11 @@ class SlowTask(QtCore.QThread):
             KPP.append(base[1])
         return (OGRN, KPP, wrong_files, correct_files)
 
-    def get_data_from_csv_and_check_num_delimiters(self, path_to_csv, wrong_files):
+    def get_data_from_csv_and_check_num_delimiters(self, path_to_csv, wrong_files, n):
         data = []
         filesCount = len(path_to_csv)
         for i in range(filesCount):
-            self.percent += 20/filesCount
+            self.percent += 20/(filesCount * (n+1))
             self.updated.emit(int(self.percent))
             try:
                 with open(path_to_csv[i], newline='') as csvfile:
@@ -130,8 +132,6 @@ class SlowTask(QtCore.QThread):
                         data[i][j].append('')
                 elif(len(data[i][j]) > 34):
                     data[i][j] = data[i][j][0:-(len(data[i][j]) - 34)]
-        self.percent = 20
-        self.updated.emit(int(self.percent))
         return (data, wrong_files)
 
     def check_OGRN_KPP_get_num_sub_RF(self, OGRN, KPP, errors, len_err):
@@ -376,11 +376,11 @@ class SlowTask(QtCore.QThread):
                 print('Таблица Tcsv уже существует')
 
 
-    def add_data(self, db, data, OGRN, KPP, num_sub_RF, priznak_organiz_from_KPP, objWindow, errors):
+    def add_data(self, db, data, OGRN, KPP, num_sub_RF, priznak_organiz_from_KPP, objWindow, errors, n):
         filesCount = len(data)
         k = 0
         for j in range(len(data)):
-            self.percent += 80/filesCount
+            self.percent += 80/(filesCount * (n+1))
             self.updated.emit(int(self.percent))
             for i in range(1, len(data[j])):
                 db.cursor().execute("INSERT INTO Tcsv VALUES\
@@ -392,7 +392,6 @@ class SlowTask(QtCore.QThread):
                                    + data[j][i][25] + "','" + data[j][i][26] + "','" + data[j][i][27] + "','" + data[j][i][28] + "','" + data[j][i][29] + "','"\
                                    + data[j][i][30] + "','" + data[j][i][31] + "','" + data[j][i][32] + "','" + data[j][i][33] + "','" + errors[k] + "');")
                 k += 1
-        self.updated.emit(int(100))
         db.commit()
 
 
