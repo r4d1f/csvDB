@@ -19,35 +19,59 @@ class SlowTask(QtCore.QThread):
         self.updated.emit(int(self.percent))
 
     def run(self, user_rules_dict, empty_cells, files, objWindow):
-        print("Start time: " + str(datetime.datetime.now()))
+        print("Start time:       " + str(datetime.datetime.now()))
         try:
             db = self.create_db()
-            OGRN, KPP, wrong_files, correct_files = self.get_files_and_OGRN_KPP_from_name(files)
-            if len(correct_files) != 0:
-                data, wrong_files = self.get_data_from_csv_and_check_num_delimiters(correct_files, wrong_files)
-                print("Обработка csv: " + str(datetime.datetime.now()))
-                data, errors = self.check_data_logic(user_rules_dict, empty_cells, data)
-                len_err = [len(data[i])-1 for i in range(len(data))]
-                OGRN, KPP, num_sub_RF, priznak_organiz_from_KPP, errors = self.check_OGRN_KPP_get_num_sub_RF(OGRN, KPP, errors, len_err)
-                self.log(files, os.getcwd(), errors, data)
-                self.create_table(db, data[0])
-                print("Добавленние в бд: " + str(datetime.datetime.now()))
-                self.add_data(db, data, OGRN, KPP, num_sub_RF, priznak_organiz_from_KPP, objWindow, errors)
-                global ERROR_DICT
-                ERROR_DICT = ERROR_DICT.fromkeys(ERROR_DICT, 0)
-                print("Done! End time: " + str(datetime.datetime.now()) + "\n")
-                db.close()
-                if len(wrong_files) == 0:
-                    return (1, [])
+
+            n = len(files)//100
+            r = len(files)%100 
+            a = 0
+            b = 100
+            files_part = []
+            for i in range(n+1):
+                if i != n:
+                    files_part.append(files[a:b])
+                    a += 100
+                    b += 100
                 else:
-                    return (2, wrong_files)
-            else:
-                return (0, wrong_files)
+                    files_part.append(files[a:a+r])
+            flag = 0
+            w_f = []
+            data_log = []
+            errors_log = []
+            for i in range(len(files_part)):
+                OGRN, KPP, wrong_files, correct_files = self.get_files_and_OGRN_KPP_from_name(files_part[i])
+                if len(correct_files) != 0:
+                    data, wrong_files = self.get_data_from_csv_and_check_num_delimiters(correct_files, wrong_files)
+                    print(i+1, ": Обработка csv:    " + str(datetime.datetime.now()))
+                    data, errors = self.check_data_logic(user_rules_dict, empty_cells, data)
+                    len_err = [len(data[i])-1 for i in range(len(data))]
+                    OGRN, KPP, num_sub_RF, priznak_organiz_from_KPP, errors = self.check_OGRN_KPP_get_num_sub_RF(OGRN, KPP, errors, len_err)
+                    self.create_table(db, data[0])
+                    print(i+1, ": Добавленние в бд: " + str(datetime.datetime.now()))
+                    self.add_data(db, data, OGRN, KPP, num_sub_RF, priznak_organiz_from_KPP, objWindow, errors)
+                    print(i+1, ": Done! End time:   " + str(datetime.datetime.now()) + "\n")
+                    w_f += wrong_files
+                    data_log += data 
+                    errors_log += errors
+                else:
+                    flag += 1
+                    continue
+            self.log(files, os.getcwd(), errors_log, data_log)
+            db.close()
+            global ERROR_DICT
+            ERROR_DICT = ERROR_DICT.fromkeys(ERROR_DICT, 0)
+            if flag == len(files_part):
+                return (0, [])
+            elif len(w_f) == 0:
+                return (1, [])
+            elif len(w_f) != 0:
+                return (2, w_f)
         except:
             print("Error! End time: " + str(datetime.datetime.now()) + "\n")
             print('Ошибка:\n', traceback.format_exc())
             return (0, [])
-
+            
     def create_db(self):
         db_path = os.getcwd() + '/DB_s_e.mdb'
         if (not os.path.exists(db_path)):
