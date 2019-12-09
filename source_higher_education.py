@@ -101,6 +101,7 @@ class SlowTask(QtCore.QThread):
 
     def get_data_from_csv_and_check_num_delimiters(self, path_to_csv, wrong_files, n):
         data = []
+        right_files = []
         filesCount = len(path_to_csv)
         for i in range(filesCount):
             self.percent += 20/(filesCount * (n+1))
@@ -109,6 +110,7 @@ class SlowTask(QtCore.QThread):
                 with open(path_to_csv[i], newline='') as csvfile:
                     try:
                         data.append(list(csv.reader(csvfile, delimiter=';', quoting=csv.QUOTE_NONE)))
+                        right_files.append(csvfile)
                     except:
                         wrong_files.append(csvfile)
             except:
@@ -117,21 +119,27 @@ class SlowTask(QtCore.QThread):
         for i in range(len(data)):
             j=1
             while (j < len(data[i])-1):
-                if (data[i][j+1][0].isdigit()):
-                    j+=1
+                if len(data[i][j+1]) == 0:
+                    del data[i][j+1]
                 else:
-                    data[i][j][-1] += data[i][j+1][0]
-                    data[i][j+1].pop(0)
-                    data[i][j] += data[i][j+1]
-                    data[i].pop(j+1)
-                
-            for j in range(1, len(data[i])):
-                if(len(data[i][j]) < 38):
-                    while(len(data[i][j]) < 38):
-                        data[i][j].append('')
-                elif(len(data[i][j]) > 38):
-                    data[i][j] = data[i][j][0:-(len(data[i][j]) - 38)]
-        
+                    if (data[i][j+1][0].isdigit()):
+                        j+=1
+                    else:
+                        data[i][j][-1] += data[i][j+1][0]
+                        data[i][j+1].pop(0)
+                        data[i][j] += data[i][j+1]
+                        data[i].pop(j+1)
+            for j in range(1, len(data[i])):    
+                try:
+                    if(len(data[i][j]) < 38):
+                        while(len(data[i][j]) < 38):
+                            data[i][j].append('')
+                    elif(len(data[i][j]) > 38):
+                        data[i][j] = data[i][j][:38] 
+                except:
+                    right_files[i] += " - MemoryError"
+                    wrong_files.append(right_files[i])
+                    continue
         return (data, wrong_files)
 
     def check_OGRN_KPP_get_num_sub_RF(self, OGRN, KPP, errors, len_err):
@@ -344,7 +352,7 @@ class SlowTask(QtCore.QThread):
 
     def create_table(self, db, data):
         sql = 'CREATE TABLE Tcsv( \
-                    [' + data[0][0] + '] VARCHAR(50), \
+                    [' + data[0][0] + '] VARCHAR(50),\
                     [' + data[0][1] + '] VARCHAR(50),\
                     [' + data[0][2] + '] VARCHAR(100),\
                     [' + data[0][3] + '] VARCHAR(100),\
