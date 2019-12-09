@@ -138,6 +138,7 @@ class SlowTask(QtCore.QThread):
                         data[i][j] = data[i][j][:38] 
                 except:
                     right_files[i] += " - MemoryError"
+                    print("Ошибка в файле " + right_files[i])
                     wrong_files.append(right_files[i])
                     continue
         return (data, wrong_files)
