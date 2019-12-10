@@ -204,21 +204,6 @@ class SlowTask(QtCore.QThread):
                     errors[n] += "(id) Ожидалось число; "
                     ERROR_DICT['Ожидалось число'] += 1
                 try:
-                    int(data[k][i][10])
-                except:
-                    errors[n] += "(Серия документа) Ожидалось число; "
-                    ERROR_DICT['Ожидалось число'] += 1
-                try:
-                    int(data[k][i][11])
-                except:
-                    errors[n] += "(Номер документа) Ожидалось число; "
-                    ERROR_DICT['Ожидалось число'] += 1
-                try:
-                    int(data[k][i][13])
-                except:
-                    errors[n] += "(Регистрационный номер) Ожидалось число; "
-                    ERROR_DICT['Ожидалось число'] += 1
-                try:
                     int(data[k][i][18])
                 except:
                     errors[n] += "(Год поступления) Ожидалось число; "
@@ -247,6 +232,33 @@ class SlowTask(QtCore.QThread):
                 if re.search(r'[a-zA-Z0-9]', data[k][i][37]):
                     errors[n] += "(Отчество получателя (оригинала)) Латинские буквы или цифры в строке; "
                     ERROR_DICT['Латинские буквы или цифры в строке'] += 1
+                
+                if (re.search(r'[а-яА-Я]', data[k][i][21]) == None) & (data[k][i][21] != ''):
+                    errors[n] += "(Фамилия получателя) Неверные данные; "
+                    ERROR_DICT['Неверные данные'] += 1
+                if (re.search(r'[а-яА-Я]', data[k][i][22]) == None) & (data[k][i][22] != ''):
+                    errors[n] += "(Имя получателя) Неверные данные; "
+                    ERROR_DICT['Неверные данные'] += 1
+                if (re.search(r'[а-яА-Я]', data[k][i][23]) == None) & (data[k][i][23] != ''):
+                    errors[n] += "(Отчество получателя) Неверные данные; "
+                    ERROR_DICT['Неверные данные'] += 1
+                if (re.search(r'[а-яА-Я]', data[k][i][35]) == None) & (data[k][i][35] != ''):
+                    errors[n] += "(Фамилия получателя (оригинала)) Неверные данные; "
+                    ERROR_DICT['Неверные данные'] += 1
+                if (re.search(r'[а-яА-Я]', data[k][i][36]) == None) & (data[k][i][36] != ''):
+                    errors[n] += "(Имя получателя (оригинала)) Неверные данные; "
+                    ERROR_DICT['Неверные данные'] += 1
+                if (re.search(r'[а-яА-Я]', data[k][i][37]) == None) & (data[k][i][37] != ''):
+                    errors[n] += "(Отчество получателя (оригинала)) Неверные данные; "
+                    ERROR_DICT['Неверные данные'] += 1
+
+                data[k][i][21] = data[k][i][21].lstrip(' ')
+                data[k][i][22] = data[k][i][22].lstrip(' ')
+                data[k][i][23] = data[k][i][23].lstrip(' ')
+                data[k][i][35] = data[k][i][35].lstrip(' ')
+                data[k][i][36] = data[k][i][36].lstrip(' ')
+                data[k][i][37] = data[k][i][37].lstrip(' ')
+                data[k][i][14] = data[k][i][14].lstrip(' ')
 
                 if re.search(r'\d\d.\d\d.\d\d\d\d', data[k][i][12]) == None:
                     errors[n] += "(Дата выдачи) Ожидалась дата; "
@@ -265,8 +277,8 @@ class SlowTask(QtCore.QThread):
                         ERROR_DICT['Ожидалась дата'] += 1
 
                 if user_rules_dict[1] == True:
-                    if re.search(r'\d\d\d\d\d\d$', data[k][i][14]) == None:
-                        errors[n] += "(Код специальности, направления подготовки) Неверный код специальности; "
+                    if re.search(r'\d\d.\d\d.\d\d$', data[k][i][14]) == None:
+                        errors[n] += "(Код специальности, направления подготовки) Неверный код специальности (не соответствует формату ХХ.ХХ.ХХ); "
                         ERROR_DICT['Неверный код специальности'] += 1
                     else:
                         if re.search(r'бакалавр', data[k][i][9]):
@@ -292,7 +304,7 @@ class SlowTask(QtCore.QThread):
                             ERROR_DICT['Несоответствие виду документа об образовании'] += 1
 
                 if (data[k][i][25] == "Муж") | (data[k][i][25] == "Жен"):
-                    if data[k][i][23] != '':
+                    if (data[k][i][23] != "") & (re.search("дальнее", data[k][i][26]) == None):
                         if (data[k][i][23][-1] == "ч") & (data[k][i][25] == "Жен"):
                             errors[n] += "(Пол получателя) Неверно указан пол; "
                             ERROR_DICT['Неверно указан пол'] += 1

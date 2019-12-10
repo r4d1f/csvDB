@@ -204,6 +204,7 @@ class SlowTask(QtCore.QThread):
                 except:
                     errors[n] += "(id) Ожидалось число; "
                     ERROR_DICT['Ожидалось число'] += 1
+                """
                 try:
                     int(data[k][i][10])
                 except:
@@ -219,6 +220,7 @@ class SlowTask(QtCore.QThread):
                 except:
                     errors[n] += "(Регистрационный номер) Ожидалось число; "
                     ERROR_DICT['Ожидалось число'] += 1
+                """
                 try:
                     int(data[k][i][18])
                 except:
@@ -248,6 +250,33 @@ class SlowTask(QtCore.QThread):
                 if re.search(r'[a-zA-Z0-9]', data[k][i][33]):
                     errors[n] += "(Отчество получателя (оригинала)) Латинские буквы или цифры в строке; "
                     ERROR_DICT['Латинские буквы или цифры в строке'] += 1
+
+                if (re.search(r'[а-яА-Я]', data[k][i][21]) == None) & (data[k][i][21] != ''):
+                    errors[n] += "(Фамилия получателя) Неверные данные; "
+                    ERROR_DICT['Неверные данные'] += 1
+                if (re.search(r'[а-яА-Я]', data[k][i][22]) == None) & (data[k][i][22] != ''):
+                    errors[n] += "(Имя получателя) Неверные данные; "
+                    ERROR_DICT['Неверные данные'] += 1
+                if (re.search(r'[а-яА-Я]', data[k][i][23]) == None) & (data[k][i][23] != ''):
+                    errors[n] += "(Отчество получателя) Неверные данные; "
+                    ERROR_DICT['Неверные данные'] += 1
+                if (re.search(r'[а-яА-Я]', data[k][i][35]) == None) & (data[k][i][35] != ''):
+                    errors[n] += "(Фамилия получателя (оригинала)) Неверные данные; "
+                    ERROR_DICT['Неверные данные'] += 1
+                if (re.search(r'[а-яА-Я]', data[k][i][36]) == None) & (data[k][i][36] != ''):
+                    errors[n] += "(Имя получателя (оригинала)) Неверные данные; "
+                    ERROR_DICT['Неверные данные'] += 1
+                if (re.search(r'[а-яА-Я]', data[k][i][37]) == None) & (data[k][i][37] != ''):
+                    errors[n] += "(Отчество получателя (оригинала)) Неверные данные; "
+                    ERROR_DICT['Неверные данные'] += 1
+
+                data[k][i][21] = data[k][i][21].lstrip(' ')
+                data[k][i][22] = data[k][i][22].lstrip(' ')
+                data[k][i][23] = data[k][i][23].lstrip(' ')
+                data[k][i][35] = data[k][i][35].lstrip(' ')
+                data[k][i][36] = data[k][i][36].lstrip(' ')
+                data[k][i][37] = data[k][i][37].lstrip(' ')
+                data[k][i][14] = data[k][i][14].lstrip(' ')
 
                 if re.search(r'\d\d.\d\d.\d\d\d\d', data[k][i][12]) == None:
                     errors[n] += "(Дата выдачи) Ожидалась дата; "
