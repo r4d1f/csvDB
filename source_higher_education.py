@@ -39,10 +39,11 @@ class SlowTask(QtCore.QThread):
             w_f = []
             data_log = []
             errors_log = []
+            right_files = []
             for i in range(len(files_part)):
                 OGRN, KPP, wrong_files, correct_files = self.get_files_and_OGRN_KPP_from_name(files_part[i])
                 if len(correct_files) != 0:
-                    data, wrong_files = self.get_data_from_csv_and_check_num_delimiters(correct_files, wrong_files, n)
+                    data, wrong_files, right_files = self.get_data_from_csv_and_check_num_delimiters(correct_files, wrong_files, right_files, n)
                     print(i+1, ": Обработка csv:    " + str(datetime.datetime.now()))
                     data, errors = self.check_data_logic(user_rules_dict, empty_cells, data)
                     len_err = [len(data[i])-1 for i in range(len(data))]
@@ -58,7 +59,7 @@ class SlowTask(QtCore.QThread):
                     flag += 1
                     continue
             self.updated.emit(100)
-            self.log(files, os.getcwd(), errors_log, data_log)
+            self.log(files, right_files, os.getcwd(), errors_log, data_log)
             db.close()
             global ERROR_DICT
             ERROR_DICT = ERROR_DICT.fromkeys(ERROR_DICT, 0)
@@ -99,9 +100,8 @@ class SlowTask(QtCore.QThread):
             KPP.append(base[1])
         return (OGRN, KPP, wrong_files, correct_files)
 
-    def get_data_from_csv_and_check_num_delimiters(self, path_to_csv, wrong_files, n):
+    def get_data_from_csv_and_check_num_delimiters(self, path_to_csv, wrong_files, right_files, n):
         data = []
-        right_files = []
         filesCount = len(path_to_csv)
         for i in range(filesCount):
             self.percent += 20/(filesCount * (n+1))
@@ -141,7 +141,7 @@ class SlowTask(QtCore.QThread):
                     print("Ошибка в файле " + right_files[i])
                     wrong_files.append(right_files[i])
                     continue
-        return (data, wrong_files)
+        return (data, wrong_files, right_files)
 
     def check_OGRN_KPP_get_num_sub_RF(self, OGRN, KPP, errors, len_err):
         num_sub_RF = []
@@ -342,7 +342,7 @@ class SlowTask(QtCore.QThread):
                 n += 1
         return (data, errors)
 
-    def log(self, path_to_csv, path_to_directory, errors, data):
+    def log(self, path_to_csv, right_files, path_to_directory, errors, data):
         name = datetime.datetime.now().strftime("%d-%m-%y--%H-%M-%S") + '.log'
         txt_patx = path_to_directory + '/' + name
         count = 0
@@ -358,10 +358,16 @@ class SlowTask(QtCore.QThread):
             for i in range(len(data)):
                 for j in range(1,len(data[i])):
                     id_arr.append(data[i][j][0])
+            file_num = 0
+            line = 1
             for k in range(len(errors)):
                 if errors[k] != '':
-                    out.write('id: (' + id_arr[k] + ')  Столбец: ' + str(errors[k]))
+                    out.write('Файл: ' + right_files[file_num].name + ' Строка: ' + str(line) + ' id: (' + id_arr[k] + ')  Столбец: ' + str(errors[k]))
                     out.write('\n')
+                line += 1
+                if line > len(data[file_num]) - 1:
+                    file_num += 1
+                    line = 1
 
     def create_table(self, db, data):
         sql = 'CREATE TABLE Tcsv( \
