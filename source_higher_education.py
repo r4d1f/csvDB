@@ -260,10 +260,10 @@ class SlowTask(QtCore.QThread):
                 data[k][i][37] = data[k][i][37].lstrip(' ')
                 data[k][i][14] = data[k][i][14].lstrip(' ')
 
-                if re.search(r'\d\d.\d\d.\d\d\d\d', data[k][i][12]) == None:
+                if re.search(r'\d\d\.\d\d\.\d\d\d\d', data[k][i][12]) == None:
                     errors[n] += "(Дата выдачи) Ожидалась дата; "
                     ERROR_DICT['Ожидалась дата'] += 1
-                if re.search(r'\d\d.\d\d.\d\d\d\d', data[k][i][24]) == None:
+                if re.search(r'\d\d\.\d\d\.\d\d\d\d', data[k][i][24]) == None:
                     errors[n] += "(Дата рождения получателя) Ожидалась дата; "
                     ERROR_DICT['Ожидалась дата'] += 1
                 else:
@@ -272,12 +272,12 @@ class SlowTask(QtCore.QThread):
                            errors[n] += "(Дата рождения получателя) Некорректная дата рождения; "
                            ERROR_DICT['Некорректная дата рождения'] += 1
                 if data[k][i][34] != '':
-                    if re.search(r'\d\d.\d\d.\d\d\d\d', data[k][i][34]) == None: 
+                    if re.search(r'\d\d\.\d\d\.\d\d\d\d', data[k][i][34]) == None: 
                         errors[n] += "(Дата выдачи (оригинала)) Ожидалась дата; "
                         ERROR_DICT['Ожидалась дата'] += 1
 
                 if user_rules_dict[1] == True:
-                    if re.search(r'\d\d.\d\d.\d\d$', data[k][i][14]) == None:
+                    if re.search(r'\d\d\.\d\d\.\d\d$', data[k][i][14]) == None:
                         errors[n] += "(Код специальности, направления подготовки) Неверный код специальности (не соответствует формату ХХ.ХХ.ХХ); "
                         ERROR_DICT['Неверный код специальности'] += 1
                     else:
