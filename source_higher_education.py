@@ -87,7 +87,7 @@ class SlowTask(QtCore.QThread):
         correct_files = []
         for f in files:
             try:
-                csv_files_in_directory.append(re.search(r'\d+-\d+[\s\S]*\.csv', f)[0])
+                csv_files_in_directory.append(re.search(r'\d+-[\s\S]*\.csv', f)[0])
                 correct_files.append(f)
             except:
                 wrong_files.append(f)
@@ -183,7 +183,7 @@ class SlowTask(QtCore.QThread):
                     errors[n] += "(КПП) Недопустимое количество символов; "
                     errors[n] += "(Признак филиала, либо головной организации) Ошибка в КПП; "
                     n += 1
-                    priznak_organiz_from_KPP.append('--')
+                priznak_organiz_from_KPP.append('--')
                 ERROR_DICT['Недопустимое количество символов КПП'] += 1
             else:
                 priznak_organiz_from_KPP.append(KPP[i][4:6])
