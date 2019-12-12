@@ -330,17 +330,17 @@ class SlowTask(QtCore.QThread):
                 h_e_r_f_t = ['Да', 'Нет', '']
 
                 if data[k][i][26] not in f_c_c:
-                	errors[n] += "(Гражданин иностранного государства) Неверное значение; "
-                	ERROR_DICT['Неверные данные'] += 1
+                    errors[n] += "(Гражданин иностранного государства) Неверное значение; "
+                    ERROR_DICT['Неверные данные'] += 1
                 if data[k][i][27] not in e_f:
-                	errors[n] += "(Форма обучения) Неверное значение; "
-                	ERROR_DICT['Неверные данные'] += 1
+                    errors[n] += "(Форма обучения) Неверное значение; "
+                    ERROR_DICT['Неверные данные'] += 1
                 if data[k][i][28] not in s_f:
-                	errors[n] += "(Источник финансирования обучения) Неверное значение; "
-                	ERROR_DICT['Неверные данные'] += 1
+                    errors[n] += "(Источник финансирования обучения) Неверное значение; "
+                    ERROR_DICT['Неверные данные'] += 1
                 if data[k][i][29] not in h_e_r_f_t:
-                	errors[n] += "(Высшее образование, получаемое впервые) Неверное значение; "
-                	ERROR_DICT['Неверные данные'] += 1
+                    errors[n] += "(Высшее образование, получаемое впервые) Неверное значение; "
+                    ERROR_DICT['Неверные данные'] += 1
 
                 for j in range(37):
                     data[k][i][j+1] = data[k][i][j+1].replace("\'", "\'\'")
@@ -371,7 +371,7 @@ class SlowTask(QtCore.QThread):
             line = 1
             for k in range(len(errors)):
                 if errors[k] != '':
-                    out.write('Файл: ' + right_files[file_num].name + ' Строка: ' + str(line) + ' id: (' + id_arr[k] + ')  Столбец: ' + str(errors[k]))
+                    out.write('Файл: ' + right_files[file_num].name + ' Строка: ' + str(line+1) + ' id: (' + id_arr[k] + ')  Столбец: ' + str(errors[k]))
                     out.write('\n')
                 line += 1
                 if line > len(data[file_num]) - 1:

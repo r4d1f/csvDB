@@ -375,7 +375,7 @@ class SlowTask(QtCore.QThread):
             line = 1
             for k in range(len(errors)):
                 if errors[k] != '':
-                    out.write('Файл: ' + right_files[file_num].name + ' Строка: ' + str(line) + ' id: (' + id_arr[k] + ')  Столбец: ' + str(errors[k]))
+                    out.write('Файл: ' + right_files[file_num].name + ' Строка: ' + str(line+1) + ' id: (' + id_arr[k] + ')  Столбец: ' + str(errors[k]))
                     out.write('\n')
                 line += 1
                 if line > len(data[file_num]) - 1:
