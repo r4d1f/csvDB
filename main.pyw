@@ -96,7 +96,7 @@ class ExampleApp(QtWidgets.QMainWindow, design.Ui_MainWindow):
     def error_file(self, files):
         error_str = 'Ошибка в файлах:\n'
         for file in files:
-            error_str+= str(file) + '\n'
+            error_str+= str(file.name) + '\n'
         self.errFilesMsg = Message('Ошибка', error_str)
         self.errFilesMsg.exec()
 
