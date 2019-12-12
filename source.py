@@ -43,14 +43,14 @@ class SlowTask(QtCore.QThread):
             for i in range(len(files_part)):
                 OGRN, KPP, wrong_files, correct_files = self.get_files_and_OGRN_KPP_from_name(files_part[i])
                 if len(correct_files) != 0:
-                    data, wrong_files, right_files = self.get_data_from_csv_and_check_num_delimiters(correct_files, wrong_files, right_files, n)
+                    data, wrong_files, right_files, FileName_str = self.get_data_from_csv_and_check_num_delimiters(correct_files, wrong_files, right_files, n)
                     print(i+1, ": Обработка csv:    " + str(datetime.datetime.now()))
                     data, errors = self.check_data_logic(user_rules_dict, empty_cells, data)
                     len_err = [len(data[i])-1 for i in range(len(data))]
                     OGRN, KPP, num_sub_RF, priznak_organiz_from_KPP, errors = self.check_OGRN_KPP_get_num_sub_RF(OGRN, KPP, errors, len_err)
                     self.create_table(db, data[0])
                     print(i+1, ": Добавленние в бд: " + str(datetime.datetime.now()))
-                    self.add_data(db, data, OGRN, KPP, num_sub_RF, priznak_organiz_from_KPP, objWindow, errors, n)
+                    self.add_data(db, data, OGRN, KPP, num_sub_RF, priznak_organiz_from_KPP, objWindow, errors, n, FileName_str)
                     print(i+1, ": Done! End time:   " + str(datetime.datetime.now()) + "\n")
                     w_f += wrong_files
                     data_log += data 
@@ -98,11 +98,15 @@ class SlowTask(QtCore.QThread):
             base = csv_files_in_directory[i][:-4]
             base = base.split('-')
             OGRN.append(base[0])
-            KPP.append(base[1])
+            if len(base[1]):
+                KPP.append(base[1])
+            else:
+                KPP.append('--')
         return (OGRN, KPP, wrong_files, correct_files)
 
     def get_data_from_csv_and_check_num_delimiters(self, path_to_csv, wrong_files, right_files, n):
         data = []
+        FileName_str = []
         filesCount = len(path_to_csv)
         for i in range(filesCount):
             self.percent += 20/(filesCount * (n+1))
@@ -112,6 +116,8 @@ class SlowTask(QtCore.QThread):
                     try:
                         data.append(list(csv.reader(csvfile, delimiter=';', quoting=csv.QUOTE_NONE)))
                         right_files.append(csvfile)
+                        for j in range(1, len(data[i])):
+                            FileName_str.append(str(j+1) + " строка, " + right_files[i].name) 
                     except:
                         wrong_files.append(csvfile)
             except:
@@ -142,7 +148,7 @@ class SlowTask(QtCore.QThread):
                     print("Ошибка в файле " + right_files[i])
                     wrong_files.append(right_files[i])
                     continue
-        return (data, wrong_files, right_files)
+        return (data, wrong_files, right_files, FileName_str)
 
     def check_OGRN_KPP_get_num_sub_RF(self, OGRN, KPP, errors, len_err):
         num_sub_RF = []
@@ -176,7 +182,7 @@ class SlowTask(QtCore.QThread):
                     n += 1
                 ERROR_DICT['Недопустимое количество символов ОГРН'] += 1
                 num_sub_RF.append("--")
-            if len(KPP[i]) != 9:
+            if (len(KPP[i]) != 9) & (KPP[i] != '--'):
                 n = 0
                 for k in range(i):
                     n += len_err[k]
@@ -186,8 +192,10 @@ class SlowTask(QtCore.QThread):
                     n += 1
                     priznak_organiz_from_KPP.append('--')
                 ERROR_DICT['Недопустимое количество символов КПП'] += 1
-            else:
+            if len(KPP[i]) == 9:
                 priznak_organiz_from_KPP.append(KPP[i][4:6])
+            if KPP[i] == '--':
+                priznak_organiz_from_KPP.append('--') 
         return (OGRN, KPP, num_sub_RF, priznak_organiz_from_KPP, errors)
                
     def check_data_logic(self, user_rules_dict, empty_cells, data):
@@ -260,28 +268,28 @@ class SlowTask(QtCore.QThread):
                 if (re.search(r'[а-яА-Я]', data[k][i][23]) == None) & (data[k][i][23] != ''):
                     errors[n] += "(Отчество получателя) Неверные данные; "
                     ERROR_DICT['Неверные данные'] += 1
-                if (re.search(r'[а-яА-Я]', data[k][i][35]) == None) & (data[k][i][35] != ''):
+                if (re.search(r'[а-яА-Я]', data[k][i][31]) == None) & (data[k][i][31] != ''):
                     errors[n] += "(Фамилия получателя (оригинала)) Неверные данные; "
                     ERROR_DICT['Неверные данные'] += 1
-                if (re.search(r'[а-яА-Я]', data[k][i][36]) == None) & (data[k][i][36] != ''):
+                if (re.search(r'[а-яА-Я]', data[k][i][32]) == None) & (data[k][i][32] != ''):
                     errors[n] += "(Имя получателя (оригинала)) Неверные данные; "
                     ERROR_DICT['Неверные данные'] += 1
-                if (re.search(r'[а-яА-Я]', data[k][i][37]) == None) & (data[k][i][37] != ''):
+                if (re.search(r'[а-яА-Я]', data[k][i][33]) == None) & (data[k][i][33] != ''):
                     errors[n] += "(Отчество получателя (оригинала)) Неверные данные; "
                     ERROR_DICT['Неверные данные'] += 1
 
                 data[k][i][21] = data[k][i][21].lstrip(' ')
                 data[k][i][22] = data[k][i][22].lstrip(' ')
                 data[k][i][23] = data[k][i][23].lstrip(' ')
-                data[k][i][35] = data[k][i][35].lstrip(' ')
-                data[k][i][36] = data[k][i][36].lstrip(' ')
-                data[k][i][37] = data[k][i][37].lstrip(' ')
+                data[k][i][31] = data[k][i][31].lstrip(' ')
+                data[k][i][32] = data[k][i][32].lstrip(' ')
+                data[k][i][33] = data[k][i][33].lstrip(' ')
                 data[k][i][14] = data[k][i][14].lstrip(' ')
 
-                if re.search(r'\d\d\.\d\d\.\d\d\d\d', data[k][i][12]) == None:
+                if re.fullmatch(r'\d\d\.\d\d\.\d\d\d\d', data[k][i][12]) == None:
                     errors[n] += "(Дата выдачи) Ожидалась дата; "
                     ERROR_DICT['Ожидалась дата'] += 1
-                if re.search(r'\d\d\.\d\d\.\d\d\d\d', data[k][i][24]) == None:
+                if re.fullmatch(r'\d\d\.\d\d\.\d\d\d\d', data[k][i][24]) == None:
                     errors[n] += "(Дата рождения получателя) Ожидалась дата; "
                     ERROR_DICT['Ожидалась дата'] += 1
                 else:
@@ -290,12 +298,12 @@ class SlowTask(QtCore.QThread):
                            errors[n] += "(Дата рождения получателя) Некорректная дата рождения; "
                            ERROR_DICT['Некорректная дата рождения'] += 1
                 if data[k][i][30] != '':
-                    if re.search(r'\d\d\.\d\d\.\d\d\d\d', data[k][i][30]) == None: 
+                    if re.fullmatch(r'\d\d\.\d\d\.\d\d\d\d', data[k][i][30]) == None: 
                         errors[n] += "(Дата выдачи (оригинала)) Ожидалась дата; "
                         ERROR_DICT['Ожидалась дата'] += 1
 
                 if user_rules_dict[1] == True:
-                    if re.search(r'\d\d\.\d\d\.\d\d$', data[k][i][14]) == None:
+                    if re.fullmatch(r'\d\d\.\d\d\.\d\d', data[k][i][14]) == None:
                         if re.search(r'\d\d.\d\d.\d\d\d\d', data[k][i][14]): 
                             errors[n] += "(Код специальности, направления подготовки) Неверный код специальности; "
                             ERROR_DICT['Неверный код специальности'] += 1
@@ -412,6 +420,7 @@ class SlowTask(QtCore.QThread):
                     [' + data[0][31] + '] VARCHAR(50),\
                     [' + data[0][32] + '] VARCHAR(50),\
                     [' + data[0][33] + '] VARCHAR(50),\
+                    [Номер строки csv и Имя csv] VARCHAR(100),\
                     [Информация об ошибках] MEMO\
                     );'
         try:
@@ -421,7 +430,7 @@ class SlowTask(QtCore.QThread):
                 print('Таблица Tcsv уже существует')
 
 
-    def add_data(self, db, data, OGRN, KPP, num_sub_RF, priznak_organiz_from_KPP, objWindow, errors, n):
+    def add_data(self, db, data, OGRN, KPP, num_sub_RF, priznak_organiz_from_KPP, objWindow, errors, n, FileName_str):
         filesCount = len(data)
         k = 0
         for j in range(len(data)):
@@ -435,7 +444,7 @@ class SlowTask(QtCore.QThread):
                                    + data[j][i][15] + "','" + data[j][i][16] + "','" + data[j][i][17] + "','" + data[j][i][18] + "','" + data[j][i][19] + "','"\
                                    + data[j][i][20] + "','" + data[j][i][21] + "','" + data[j][i][22] + "','" + data[j][i][23] + "','" + data[j][i][24] + "','"\
                                    + data[j][i][25] + "','" + data[j][i][26] + "','" + data[j][i][27] + "','" + data[j][i][28] + "','" + data[j][i][29] + "','"\
-                                   + data[j][i][30] + "','" + data[j][i][31] + "','" + data[j][i][32] + "','" + data[j][i][33] + "','" + errors[k] + "');")
+                                   + data[j][i][30] + "','" + data[j][i][31] + "','" + data[j][i][32] + "','" + data[j][i][33] + "','" + FileName_str[k]+ "','" + errors[k] + "');")
                 k += 1
         db.commit()
 
